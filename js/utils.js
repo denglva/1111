@@ -225,7 +225,6 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
 
                     // 兼容其它旧声音类型（不走两方预设）
                     if (type === 'favorite') return { osc1Type: 'sine', osc2Type: 'sine', freq: 1200, dur: 0.18, up: 1.06, down: 0.70 };
-                    if (type === 'anniversary') return { osc1Type: 'sawtooth', osc2Type: 'triangle', freq: 660, dur: 0.22, up: 1.10, down: 0.62 };
                     if (type === 'mood') return { osc1Type: 'sine', osc2Type: 'square', freq: 440, dur: 0.16, up: 1.12, down: 0.60 };
                     if (type === 'import') return { osc1Type: 'square', osc2Type: 'triangle', freq: 330, dur: 0.16, up: 1.25, down: 0.70 };
                     if (type === 'export') return { osc1Type: 'triangle', osc2Type: 'sine', freq: 520, dur: 0.16, up: 1.15, down: 0.66 };
@@ -293,6 +292,7 @@ function deduplicateContentArray(arr, baseSystemArray = []) {
                 }
             }, 500);
         };
+        window.throttledSaveData = throttledSaveData;
 
 async function applyCustomFont(url) {
     if (!url || !url.trim()) {
@@ -383,7 +383,6 @@ async function exportAllData() {
                 inclMsgs: true,
                 inclSet: true,
                 inclCustom: true,
-                inclAnn: true,
                 inclThemes: true,
                 inclDg: true,
                 inclStickers: true
@@ -447,12 +446,6 @@ async function importAllData(file) {
                 label: '表情库（贴纸）',
                 indexedDBNeedles: ['stickerLibrary', 'myStickerLibrary'],
                 localStorageNeedles: ['disabledStickerItems']
-            },
-            {
-                id: 'ann',
-                label: '纪念日',
-                indexedDBNeedles: ['anniversaries'],
-                localStorageNeedles: []
             },
             {
                 id: 'mood',

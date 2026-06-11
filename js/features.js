@@ -350,17 +350,65 @@
     };
 
     window._scrollToMsg = function(id) {
-        var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]');
-        if (el) {
-            el.scrollIntoView({behavior:'smooth',block:'center'});
-            el.style.transition='background .3s ease';
-            el.style.background='rgba(var(--accent-color-rgb),.14)';
-            setTimeout(function(){ el.style.background=''; }, 1800);
-            var m = document.getElementById('stats-modal');
-            if (m && typeof hideModal==='function') setTimeout(function(){ hideModal(m); }, 350);
-        } else {
-            if (typeof showNotification==='function') showNotification('消息不在当前视图中','info',2000);
+        // 关闭统计弹窗（hideModal 可能不在全局作用域，直接操作 DOM）
+        var m = document.getElementById('stats-modal');
+        if (m) {
+            var content = m.querySelector('.modal-content');
+            if (content) {
+                content.style.opacity = '0';
+                content.style.transform = 'translateY(20px) scale(0.95)';
+            }
+            if (m._hideTimeout) clearTimeout(m._hideTimeout);
+            m._hideTimeout = setTimeout(function() {
+                m.style.display = 'none';
+            }, 300);
         }
+
+        // 延迟等弹窗关闭动画完成，再尝试滚动
+        setTimeout(function() {
+            var el = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]');
+            if (el) {
+                el.scrollIntoView({behavior:'smooth',block:'center'});
+                el.style.transition='background .3s ease';
+                el.style.background='rgba(var(--accent-color-rgb),.14)';
+                setTimeout(function(){ el.style.background=''; }, 1800);
+            } else {
+                // 消息不在当前视图中，需要加载更多历史消息
+                var msgIndex = -1;
+                if (typeof messages !== 'undefined') {
+                    for (var i = 0; i < messages.length; i++) {
+                        if (String(messages[i].id) === String(id)) {
+                            msgIndex = i;
+                            break;
+                        }
+                    }
+                }
+                if (msgIndex === -1) {
+                    if (typeof showNotification==='function') showNotification('消息可能已被删除','info',2000);
+                    return;
+                }
+                // 增加显示的消息数量以包含目标消息
+                if (typeof displayedMessageCount !== 'undefined') {
+                    var needed = messages.length - msgIndex;
+                    if (needed > displayedMessageCount) {
+                        displayedMessageCount = needed + 10; // 多加载一些
+                        if (typeof renderMessages === 'function') renderMessages(false);
+                        // 渲染完成后再尝试滚动
+                        setTimeout(function() {
+                            var el2 = document.querySelector('[data-id="'+id+'"]') || document.querySelector('[data-message-id="'+id+'"]');
+                            if (el2) {
+                                el2.scrollIntoView({behavior:'smooth',block:'center'});
+                                el2.style.transition='background .3s ease';
+                                el2.style.background='rgba(var(--accent-color-rgb),.14)';
+                                setTimeout(function(){ el2.style.background=''; }, 1800);
+                            } else {
+                                if (typeof showNotification==='function') showNotification('消息定位失败','info',2000);
+                            }
+                        }, 200);
+                    }
+                }
+            }
+        }, 350);
     };
 })();
 

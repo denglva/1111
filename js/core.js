@@ -154,7 +154,6 @@ function loadMoreHistory() {
                 messageFontFamily: "'Noto Serif SC', serif",
                 messageFontWeight: 400,
                 messageLineHeight: 1.5,
-                musicPlayerEnabled: false,
                 replyDelayMin: 3000,
                 replyDelayMax: 7000,
                 inChatAvatarEnabled: true,
@@ -171,6 +170,24 @@ function loadMoreHistory() {
                 partnerAvatarShape: 'circle',
 autoSendEnabled: false,
 autoSendInterval: 5,
+        moyuAutoGenerateEnabled: false,
+        moyuAutoGenerateInterval: 60,
+        moyuShowDetail: true,
+        // 信封投递设置
+        envelopeAutoSendEnabled: false,
+        envelopeAutoSendMinVal: 1,
+        envelopeAutoSendMinUnit: 'hours',
+        envelopeAutoSendMaxVal: 3,
+        envelopeAutoSendMaxUnit: 'hours',
+        envelopeCustomRuleEnabled: false,
+        envelopeReplyMinVal: 10,
+        envelopeReplyMinUnit: 'hours',
+        envelopeReplyMaxVal: 24,
+        envelopeReplyMaxUnit: 'hours',
+        envelopeReplyMinSentences: 8,
+        envelopeReplyMaxSentences: 12,
+        // 主页绑定会话开关（默认关闭）
+        homeSessionBindEnabled: false,
         allowReadNoReply: false, 
         readNoReplyChance: 0.2,
         timeFormat: 'HH:mm',
@@ -186,7 +203,9 @@ autoSendInterval: 5,
         partnerPokeCustomSoundUrl: '',
         soundVolume: 0.15,
         bottomCollapseMode: false,
-        emojiMixEnabled: true
+        emojiMixEnabled: true,
+        kaomojiMixEnabled: true,
+        enterKeySendEnabled: false
             };
         }
 
@@ -266,13 +285,20 @@ autoSendInterval: 5,
         const applyBackground = (value) => {
             if (!value || typeof value !== 'string') return;
             try {
+                let cssValue;
                 if (value.startsWith('linear-gradient') || value.startsWith('#') || value.startsWith('rgb')) {
+                    cssValue = value;
                     document.documentElement.style.setProperty('--chat-bg-image', value);
                 } else {
-                    const cssValue = value.startsWith('url(') ? value : `url(${value})`;
+                    cssValue = value.startsWith('url(') ? value : `url(${value})`;
                     document.documentElement.style.setProperty('--chat-bg-image', cssValue);
                 }
                 document.body.classList.add('with-background');
+                
+                // 同步到 Home 界面
+                if (typeof window.syncChatBgToHome === 'function') {
+                    window.syncChatBgToHome(cssValue);
+                }
             } catch (e) {
                 if (typeof removeBackground === 'function') removeBackground();
             }
@@ -293,7 +319,6 @@ const loadData = async () => {
             localforage.getItem(getStorageKey('customStatuses')),
             localforage.getItem(getStorageKey('customMottos')),
             localforage.getItem(getStorageKey('customIntros')),
-            localforage.getItem(getStorageKey('anniversaries')),
             localforage.getItem(getStorageKey('stickerLibrary')),
             localforage.getItem(`${APP_PREFIX}customThemes`),
             localforage.getItem(getStorageKey('chatBackground')),
@@ -305,7 +330,17 @@ const loadData = async () => {
             localforage.getItem(getStorageKey('myStickerLibrary')),
             localforage.getItem(getStorageKey('customReplyGroups')),
             localforage.getItem(getStorageKey('customPokeGroups')),
-            localforage.getItem(getStorageKey('customStatusGroups'))
+            localforage.getItem(getStorageKey('customStatusGroups')),
+            localforage.getItem(getStorageKey('kaomojiLibrary')),
+            localforage.getItem(getStorageKey('kaomojiGroups')),
+            localforage.getItem(getStorageKey('customStickerGroups')),
+            localforage.getItem(getStorageKey('moyuRecords')),
+            localforage.getItem(getStorageKey('moyuLocations')),
+            localforage.getItem(getStorageKey('moyuActivities')),
+            localforage.getItem(getStorageKey('currentMoyuRecord')),
+            localforage.getItem(getStorageKey('moyuUnread')),
+            localforage.getItem(getStorageKey('moyuWorkSession')),
+            localforage.getItem(getStorageKey('transferData'))
         ]);
         const getVal = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
 
@@ -317,23 +352,44 @@ const loadData = async () => {
         const savedStatuses = getVal(5);
         const savedMottos = getVal(6);
         const savedIntros = getVal(7);
-        const savedAnniversaries = getVal(8);
-        const savedStickers = getVal(9);
-        const savedCustomThemes = getVal(10);
-        const savedChatBg = getVal(11);
-        const partnerAvatarSrc = getVal(12);
-        const myAvatarSrc = getVal(13);
-        const savedPartnerPersonas = getVal(14);
-        const savedShowNameConfig = getVal(15);
-        const savedThemeSchemes = getVal(16);
-        const savedMyStickers = getVal(17);
-        const savedReplyGroups = getVal(18);
-        const savedPokeGroups = getVal(19);
-        const savedStatusGroups = getVal(20);
+        const savedStickers = getVal(8);
+        const savedCustomThemes = getVal(9);
+        const savedChatBg = getVal(10);
+        // 头像优先从 localforage 读取，如果没有则从 localStorage 读取备份
+        let partnerAvatarSrc = getVal(11);
+        let myAvatarSrc = getVal(12);
+        if (!partnerAvatarSrc && SESSION_ID) {
+            try {
+                partnerAvatarSrc = localStorage.getItem(`${APP_PREFIX}${SESSION_ID}_partnerAvatar`);
+            } catch(e) {}
+        }
+        if (!myAvatarSrc && SESSION_ID) {
+            try {
+                myAvatarSrc = localStorage.getItem(`${APP_PREFIX}${SESSION_ID}_myAvatar`);
+            } catch(e) {}
+        }
+        const savedPartnerPersonas = getVal(13);
+        const savedShowNameConfig = getVal(14);
+        const savedThemeSchemes = getVal(15);
+        const savedMyStickers = getVal(16);
+        const savedReplyGroups = getVal(17);
+        const savedPokeGroups = getVal(18);
+        const savedStatusGroups = getVal(19);
+        const savedKaomojiLibrary = getVal(20);
+        const savedKaomojiGroups = getVal(21);
+        const savedStickerGroups = getVal(22);
+        const savedMoyuRecords = getVal(23);
+        const savedMoyuLocations = getVal(24);
+        const savedMoyuActivities = getVal(25);
+        const savedCurrentMoyuRecord = getVal(26);
+        const savedMoyuUnread = getVal(27);
+        const savedMoyuWorkSession = getVal(28);
+        const savedTransferData = getVal(29);
 
         if (savedPartnerPersonas) partnerPersonas = savedPartnerPersonas;
 
         if (savedSettings) Object.assign(settings, savedSettings);
+        window.settings = settings; // 暴露到 window，供 home.js 等模块读取
 
         if (settings.showPartnerNameInChat !== undefined) {
             showPartnerNameInChat = settings.showPartnerNameInChat;
@@ -372,9 +428,6 @@ const loadData = async () => {
                     ...m, timestamp: new Date(m.timestamp)
                 }));
                 if (backup.settings) Object.assign(settings, backup.settings);
-                if (backup.anniversaries && Array.isArray(backup.anniversaries)) {
-                    anniversaries = backup.anniversaries;
-                }
                 setTimeout(() => saveData(), 1000);
                 showNotification(
                     `已从备份恢复 ${messages.length} 条消息${backup._truncated ? '（备份为最近200条）' : ''}`,
@@ -395,14 +448,55 @@ const loadData = async () => {
         if (savedReplyGroups) window.customReplyGroups = savedReplyGroups;
         if (savedPokeGroups) window.customPokeGroups = savedPokeGroups;
         if (savedStatusGroups) window.customStatusGroups = savedStatusGroups;
-        if (savedAnniversaries) anniversaries = savedAnniversaries;
         if (savedStickers) stickerLibrary = savedStickers;
         if (savedMyStickers) myStickerLibrary = savedMyStickers;
         if (savedCustomThemes) customThemes = savedCustomThemes;
         if (savedThemeSchemes) themeSchemes = savedThemeSchemes;
+        if (savedKaomojiLibrary) kaomojiLibrary = savedKaomojiLibrary;
+        if (savedKaomojiGroups) window.kaomojiGroups = savedKaomojiGroups;
+        if (savedStickerGroups) window.customStickerGroups = savedStickerGroups;
+        if (savedMoyuRecords) moyuRecords = savedMoyuRecords;
+        if (savedMoyuLocations) moyuLocations = savedMoyuLocations;
+        if (savedMoyuActivities) window.moyuActivities = savedMoyuActivities;
+        if (savedCurrentMoyuRecord) currentMoyuRecord = savedCurrentMoyuRecord;
+        if (savedMoyuUnread) {
+            moyuUnread = true;
+            // 延迟显示小红点（等待 DOM 加载）
+            setTimeout(() => {
+                if (typeof window.setMoyuUnread === 'function') window.setMoyuUnread();
+            }, 1000);
+        }
+        if (savedMoyuWorkSession) {
+            moyuWorkSession = savedMoyuWorkSession;
+            // 恢复时检查是否需要结束会话
+            const now = Date.now();
+            if (now >= moyuWorkSession.endTime) {
+                // 会话已结束，保存到记录列表
+                if (!moyuRecords) moyuRecords = [];
+                if (currentMoyuRecord) {
+                    moyuRecords.push({...currentMoyuRecord});
+                    localforage.setItem(getStorageKey('moyuRecords'), moyuRecords).catch(() => {});
+                }
+                currentMoyuRecord = null;
+                moyuWorkSession = null;
+                localforage.setItem(getStorageKey('currentMoyuRecord'), null).catch(() => {});
+                localforage.setItem(getStorageKey('moyuWorkSession'), null).catch(() => {});
+            } else {
+                // 会话仍在进行中，设置结束检测
+                scheduleWorkEndCheck();
+            }
+        }
         try { const ce = await localforage.getItem(getStorageKey('customEmojis')); if (ce && Array.isArray(ce)) customEmojis = ce; } catch(e) {}
+        if (savedTransferData) transferData = savedTransferData;
         window._customReplies = customReplies;
+        window._stickerLibrary = stickerLibrary;
+        window._kaomojiLibrary = kaomojiLibrary;
+        window._customEmojis = customEmojis;
         window._CONSTANTS = CONSTANTS;
+
+        // 将头像数据保存到 settings，供 Home 页同步使用
+        if (partnerAvatarSrc) settings.partnerAvatar = partnerAvatarSrc;
+        if (myAvatarSrc) settings.myAvatar = myAvatarSrc;
 
         if (DOMElements && DOMElements.partner && DOMElements.me) {
             updateAvatar(DOMElements.partner.avatar, partnerAvatarSrc);
@@ -425,12 +519,22 @@ const loadData = async () => {
         displayedMessageCount = HISTORY_BATCH_SIZE;
         
         setTimeout(() => {
-            applyAllAvatarFrames();
-            manageAutoSendTimer(); 
-            checkEnvelopeStatus(); 
-            updateUI();
+            if (typeof applyAllAvatarFrames === 'function') applyAllAvatarFrames();
+            if (typeof manageAutoSendTimer === 'function') manageAutoSendTimer();
+            if (typeof manageMoyuAutoGenerateTimer === 'function') manageMoyuAutoGenerateTimer();
+            if (typeof manageEnvelopeAutoSendTimer === 'function') manageEnvelopeAutoSendTimer();
+            if (typeof checkEnvelopeStatus === 'function') checkEnvelopeStatus();
+            if (typeof updateUI === 'function') updateUI();
             if (settings.customBubbleCss) {
                 try { applyCustomBubbleCss(settings.customBubbleCss); } catch(e) {}
+            }
+            // 同步数据到 Home 页
+            if (typeof window.syncHomePageData === 'function') {
+                window.syncHomePageData();
+            }
+            // 初始化 Home 页（加载设置等）
+            if (typeof window.initHomePage === 'function') {
+                window.initHomePage();
             }
         }, 100);
 
@@ -447,8 +551,16 @@ const LIBRARY_CONFIG = {
         title: "回复库管理",
         tabs: [
             { id: 'custom', name: '主字卡', mode: 'list' },
+            { id: 'kaomojis', name: '颜文字', mode: 'list' },
             { id: 'emojis', name: 'Emoji', mode: 'grid' },
             { id: 'stickers', name: '表情库', mode: 'grid' }
+        ]
+    },
+    moyu: {
+        title: "摸鱼管理",
+        tabs: [
+            { id: 'moyu', name: '摸鱼活动', mode: 'list' },
+            { id: 'moyuLocations', name: '工作地点', mode: 'list' }
         ]
     },
     atmosphere: {
@@ -461,8 +573,6 @@ const LIBRARY_CONFIG = {
         ]
     }
 };
-let currentAnnType = 'anniversary'; 
-
 window.openMyStickerSettings = function() {
     const picker = document.getElementById('user-sticker-picker');
     if (picker) picker.classList.remove('active');
@@ -477,34 +587,7 @@ window.openMyStickerSettings = function() {
     if (modal && typeof showModal === 'function') showModal(modal);
 };
 
-window.switchAnnType = function(type) {
-    currentAnnType = type;
-    currentAnniversaryType = type; 
-    document.querySelectorAll('.ann-type-btn').forEach(btn => {
-        if (btn.dataset.type === type) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    
-    const desc = document.getElementById('ann-type-desc');
-    if(desc) {
-        desc.textContent = type === 'anniversary' 
-            ? '计算从过去某一天到现在已经过了多少天 (例如: 相识、恋爱)' 
-            : '计算从现在到未来某一天还剩下多少天 (例如: 生日、跨年)';
-    }
-};
 
-window.deleteAnniversaryItem = function(id) {
-    if(confirm("确定要删除这条记录吗？")) {
-        anniversaries = anniversaries.filter(a => a.id !== id);
-        throttledSaveData(); 
-        renderAnniversariesList();
-        showNotification('已删除', 'success');
-        if (typeof playSound === 'function') playSound('anniversary');
-    }
-};
 
 const _BACKUP_PREFIX = 'BACKUP_V1_';
 function _backupCriticalData() {
@@ -514,8 +597,7 @@ function _backupCriticalData() {
             ts: Date.now(),
             messages: messages,
             settings: settings,
-            sessionId: SESSION_ID,
-            anniversaries: anniversaries
+            sessionId: SESSION_ID
         };
 
         let payloadToStore = backupPayload;
@@ -569,8 +651,16 @@ const saveData = async () => {
         { key: 'customReplyGroups',      val: () => localforage.setItem(getStorageKey('customReplyGroups'), window.customReplyGroups || []) },
         { key: 'customPokeGroups',        val: () => localforage.setItem(getStorageKey('customPokeGroups'), window.customPokeGroups || []) },
         { key: 'customStatusGroups',      val: () => localforage.setItem(getStorageKey('customStatusGroups'), window.customStatusGroups || []) },
+        { key: 'kaomojiGroups',           val: () => localforage.setItem(getStorageKey('kaomojiGroups'), window.kaomojiGroups || []) },
+        { key: 'customStickerGroups',     val: () => localforage.setItem(getStorageKey('customStickerGroups'), window.customStickerGroups || []) },
         { key: 'customEmojis',           val: () => localforage.setItem(getStorageKey('customEmojis'), customEmojis) },
-        { key: 'anniversaries',          val: () => localforage.setItem(getStorageKey('anniversaries'), anniversaries) },
+        { key: 'kaomojiLibrary',         val: () => localforage.setItem(getStorageKey('kaomojiLibrary'), kaomojiLibrary) },
+        { key: 'moyuRecords',            val: () => localforage.setItem(getStorageKey('moyuRecords'), moyuRecords) },
+        { key: 'moyuLocations',          val: () => localforage.setItem(getStorageKey('moyuLocations'), moyuLocations) },
+        { key: 'moyuActivities',         val: () => localforage.setItem(getStorageKey('moyuActivities'), moyuActivities) },
+        { key: 'currentMoyuRecord',      val: () => localforage.setItem(getStorageKey('currentMoyuRecord'), currentMoyuRecord) },
+        { key: 'moyuUnread',             val: () => localforage.setItem(getStorageKey('moyuUnread'), moyuUnread) },
+        { key: 'moyuWorkSession',        val: () => localforage.setItem(getStorageKey('moyuWorkSession'), moyuWorkSession) },
         { key: 'customPokes',            val: () => localforage.setItem(getStorageKey('customPokes'), customPokes) },
         { key: 'customStatuses',         val: () => localforage.setItem(getStorageKey('customStatuses'), customStatuses) },
         { key: 'customMottos',           val: () => localforage.setItem(getStorageKey('customMottos'), customMottos) },
@@ -580,32 +670,12 @@ const saveData = async () => {
         { key: 'customThemes',           val: () => localforage.setItem(`${APP_PREFIX}customThemes`, customThemes) },
         { key: 'themeSchemes',           val: () => localforage.setItem(`${APP_PREFIX}themeSchemes`, themeSchemes) },
         { key: 'chatMessages',           val: () => localforage.setItem(getStorageKey('chatMessages'), messages) },
+        { key: 'transferData',            val: () => localforage.setItem(getStorageKey('transferData'), transferData) },
     ];
 
-    const partnerAvatarSrc = (() => {
-        try {
-            const img = DOMElements.partner.avatar.querySelector('img');
-            return img ? img.src : null;
-        } catch(e) { return null; }
-    })();
-    const myAvatarSrc = (() => {
-        try {
-            const img = DOMElements.me.avatar.querySelector('img');
-            return img ? img.src : null;
-        } catch(e) { return null; }
-    })();
-
-    if (partnerAvatarSrc) {
-        promises.push({ key: 'partnerAvatar', val: () => localforage.setItem(getStorageKey('partnerAvatar'), partnerAvatarSrc) });
-    } else {
-        promises.push({ key: 'partnerAvatar', val: () => localforage.removeItem(getStorageKey('partnerAvatar')) });
-    }
-
-    if (myAvatarSrc) {
-        promises.push({ key: 'myAvatar', val: () => localforage.setItem(getStorageKey('myAvatar'), myAvatarSrc) });
-    } else {
-        promises.push({ key: 'myAvatar', val: () => localforage.removeItem(getStorageKey('myAvatar')) });
-    }
+    // 头像保存：优先从独立存储键读取，如果没有则从 settings 读取
+    // 注意：头像由 handleAvatarUpload/updateHomeAvatar 直接保存到 localforage，这里只保存 settings 对象
+    // 不主动删除头像，避免竞态条件导致头像丢失
 
     const results = await Promise.allSettled(promises.map(p => {
         try { return p.val(); }
@@ -626,6 +696,7 @@ const saveData = async () => {
 
     _backupCriticalData();
 };
+window.saveData = saveData;
 
         function initializeRandomUI() {
 
@@ -803,6 +874,509 @@ function manageAutoSendTimer() {
     }
 }
 
+let moyuSessionTimer = null; // 工作会话定时器
+let moyuMessageTimer = null; // 会话期间消息定时器
+let envelopeAutoSendTimer = null; // 时空来信定时器
+
+function manageEnvelopeAutoSendTimer() {
+    // 清除现有定时器
+    if (envelopeAutoSendTimer) {
+        clearTimeout(envelopeAutoSendTimer);
+        envelopeAutoSendTimer = null;
+    }
+
+    if (!settings.envelopeAutoSendEnabled) return;
+
+    // 计算下次写信时间
+    const unitToMs = { minutes: 60 * 1000, hours: 60 * 60 * 1000, days: 24 * 60 * 60 * 1000 };
+    const minVal = settings.envelopeAutoSendMinVal || 1;
+    const maxVal = settings.envelopeAutoSendMaxVal || 3;
+    const minUnit = unitToMs[settings.envelopeAutoSendMinUnit] || unitToMs.hours;
+    const maxUnit = unitToMs[settings.envelopeAutoSendMaxUnit] || unitToMs.hours;
+    const minMs = minVal * minUnit;
+    const maxMs = maxVal * maxUnit;
+    const randomMs = Math.random() * (maxMs - minMs) + minMs;
+
+    envelopeAutoSendTimer = setTimeout(() => {
+        if (settings.envelopeAutoSendEnabled && typeof generateRandomEnvelopeLetter === 'function') {
+            generateRandomEnvelopeLetter();
+        }
+        manageEnvelopeAutoSendTimer(); // 继续安排下一次
+    }, randomMs);
+}
+window.manageEnvelopeAutoSendTimer = manageEnvelopeAutoSendTimer;
+
+function manageMoyuAutoGenerateTimer() {
+    // 清除现有定时器
+    if (moyuSessionTimer) {
+        clearTimeout(moyuSessionTimer);
+        moyuSessionTimer = null;
+    }
+    if (moyuMessageTimer) {
+        clearTimeout(moyuMessageTimer);
+        moyuMessageTimer = null;
+    }
+
+    if (!settings.moyuAutoGenerateEnabled) return;
+
+    const now = Date.now();
+
+    // 如果有进行中的会话，恢复定时器
+    if (moyuWorkSession && now < moyuWorkSession.endTime) {
+        // 会话仍在进行中，安排下一条消息
+        scheduleNextMoyuMessage();
+        return;
+    }
+
+    // 如果有已结束的会话，先保存
+    if (currentMoyuRecord && moyuWorkSession && now >= moyuWorkSession.endTime) {
+        finishMoyuWorkSession();
+    }
+
+    // 没有进行中的会话，随机延迟 0~12 小时后开始新会话
+    const nextSessionDelay = Math.floor(Math.random() * 13) * 60 * 60 * 1000; // 0~12小时
+    moyuSessionTimer = setTimeout(() => {
+        if (settings.moyuAutoGenerateEnabled) {
+            generateRandomMoyuRecord();
+        }
+    }, nextSessionDelay);
+}
+
+// 安排下一次消息（会话期间，10-30分钟）
+function scheduleNextMoyuMessage() {
+    if (moyuMessageTimer) {
+        clearTimeout(moyuMessageTimer);
+        moyuMessageTimer = null;
+    }
+
+    if (!settings.moyuAutoGenerateEnabled || !moyuWorkSession) return;
+
+    const now = Date.now();
+    // 检查会话是否已结束
+    if (now >= moyuWorkSession.endTime) {
+        finishMoyuWorkSession();
+        // 会话结束后，随机延迟2-24小时开始新会话
+        const nextSessionDelay = Math.floor(Math.random() * 13) * 60 * 60 * 1000; // 0~12小时
+        moyuSessionTimer = setTimeout(() => {
+            generateRandomMoyuRecord();
+        }, nextSessionDelay);
+        return;
+    }
+
+    // 随机间隔10-30分钟
+    const messageInterval = (Math.floor(Math.random() * 21) + 10) * 60 * 1000;
+    // 确保不会超出会话结束时间
+    const timeUntilEnd = moyuWorkSession.endTime - now;
+    const actualInterval = Math.min(messageInterval, timeUntilEnd);
+
+    moyuMessageTimer = setTimeout(() => {
+        generateRandomMoyuRecord();
+    }, actualInterval);
+}
+
+function generateRandomMoyuRecord() {
+    const locations = moyuLocations || [];
+    const activities = moyuActivities || [];
+
+    // 如果没有数据，不生成
+    if (locations.length === 0 || activities.length === 0) return;
+
+    const now = Date.now();
+    const today = new Date().toISOString().split('T')[0];
+
+    // 检查是否有活跃的工作会话
+    if (moyuWorkSession && now < moyuWorkSession.endTime) {
+        // 在会话期间，合并新活动到当前记录
+        const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+        moyuWorkSession.activities.push({
+            content: randomActivity,
+            time: now
+        });
+
+        // 更新当前记录显示
+        currentMoyuRecord = {
+            id: moyuWorkSession.id,
+            location: moyuWorkSession.location,
+            date: today,
+            hours: moyuWorkSession.totalHours,
+            note: moyuWorkSession.activities.map(a => `• ${a.content}`).join('\n'),
+            isSession: true,
+            createdAt: new Date(moyuWorkSession.startTime).toISOString()
+        };
+
+        // 保存状态
+        localforage.setItem(getStorageKey('currentMoyuRecord'), currentMoyuRecord).catch(() => {});
+        localforage.setItem(getStorageKey('moyuWorkSession'), moyuWorkSession).catch(() => {});
+
+        // 刷新界面
+        if (typeof window.renderMoyuCurrent === 'function') {
+            window.renderMoyuCurrent();
+        }
+
+        // 显示新消息通知
+        showMoyuNewMessageNotification(randomActivity);
+
+        // 安排下一次消息
+        scheduleNextMoyuMessage();
+        return;
+    }
+
+    // 如果之前有完成的会话，先保存到记录列表
+    if (currentMoyuRecord && moyuWorkSession && now >= moyuWorkSession.endTime) {
+        if (!moyuRecords) moyuRecords = [];
+        moyuRecords.push({
+            ...currentMoyuRecord,
+            activities: moyuWorkSession.activities
+        });
+        localforage.setItem(getStorageKey('moyuRecords'), moyuRecords).catch(() => {});
+
+        // 显示工作结束提示
+        showMoyuWorkEndNotification();
+    }
+
+    // 开始新的工作会话
+    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+    const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+    const workHours = Math.floor(Math.random() * 13); // 0~12小时
+
+    moyuWorkSession = {
+        id: Date.now(),
+        startTime: now,
+        endTime: now + (workHours * 60 * 60 * 1000), // 转换为毫秒
+        location: randomLocation,
+        totalHours: workHours,
+        activities: [{
+            content: randomActivity,
+            time: now
+        }]
+    };
+
+    currentMoyuRecord = {
+        id: moyuWorkSession.id,
+        location: randomLocation,
+        date: today,
+        hours: workHours,
+        note: `• ${randomActivity}`,
+        isSession: true,
+        createdAt: new Date().toISOString()
+    };
+
+    // 保存状态
+    localforage.setItem(getStorageKey('currentMoyuRecord'), currentMoyuRecord).catch(() => {});
+    localforage.setItem(getStorageKey('moyuWorkSession'), moyuWorkSession).catch(() => {});
+
+    // 刷新摸鱼小记界面
+    if (typeof window.renderMoyuCurrent === 'function') {
+        window.renderMoyuCurrent();
+    }
+    if (typeof window.renderMoyuRecords === 'function') {
+        window.renderMoyuRecords();
+    }
+
+    // 安排下一次消息（10-30分钟后）
+    scheduleNextMoyuMessage();
+
+    // 设置工作结束检测
+    scheduleWorkEndCheck();
+
+    // 显示弹窗提示
+    showMoyuNotification();
+}
+
+// 工作结束检测定时器
+let moyuWorkEndTimer = null;
+
+function scheduleWorkEndCheck() {
+    if (moyuWorkEndTimer) {
+        clearTimeout(moyuWorkEndTimer);
+        moyuWorkEndTimer = null;
+    }
+
+    if (!moyuWorkSession) return;
+
+    const now = Date.now();
+    const timeUntilEnd = moyuWorkSession.endTime - now;
+
+    if (timeUntilEnd > 0) {
+        moyuWorkEndTimer = setTimeout(() => {
+            finishMoyuWorkSession();
+        }, timeUntilEnd);
+    } else {
+        finishMoyuWorkSession();
+    }
+}
+
+// 结束当前工作会话
+function finishMoyuWorkSession() {
+    if (!currentMoyuRecord || !moyuWorkSession) return;
+
+    // 保存到记录列表（包含 activities 数组）
+    if (!moyuRecords) moyuRecords = [];
+    moyuRecords.push({
+        ...currentMoyuRecord,
+        activities: moyuWorkSession.activities
+    });
+
+    // 清空当前状态
+    currentMoyuRecord = null;
+    moyuWorkSession = null;
+
+    // 保存数据
+    localforage.setItem(getStorageKey('moyuRecords'), moyuRecords).catch(() => {});
+    localforage.setItem(getStorageKey('currentMoyuRecord'), null).catch(() => {});
+    localforage.setItem(getStorageKey('moyuWorkSession'), null).catch(() => {});
+
+    // 刷新界面
+    if (typeof window.renderMoyuCurrent === 'function') {
+        window.renderMoyuCurrent();
+    }
+    if (typeof window.renderMoyuRecords === 'function') {
+        window.renderMoyuRecords();
+    }
+
+    // 显示工作结束提示
+    showMoyuWorkEndNotification();
+
+    // 如果功能仍开启，安排下一次工作会话（2-24小时后）
+    if (settings.moyuAutoGenerateEnabled) {
+        const nextSessionDelay = Math.floor(Math.random() * 13) * 60 * 60 * 1000; // 0~12小时
+        moyuSessionTimer = setTimeout(() => {
+            generateRandomMoyuRecord();
+        }, nextSessionDelay);
+    }
+}
+
+// 显示新消息通知（会话期间）
+function showMoyuNewMessageNotification(activityContent) {
+    // 移除已存在的新消息通知
+    const existing = document.getElementById('moyu-new-message-notification');
+    if (existing) existing.remove();
+
+    const showDetail = settings.moyuShowDetail !== false;
+    const detailHtml = showDetail ? `
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; padding: 8px; background: var(--primary-bg); border-radius: 8px; line-height: 1.4;">
+            ${activityContent}
+        </div>
+        <div style="font-size: 11px; color: var(--accent-color); margin-bottom: 14px;">
+            <i class="fas fa-info-circle" style="margin-right: 4px;"></i>已并入当前工作记录
+        </div>
+    ` : `
+        <div style="font-size: 11px; color: var(--accent-color); margin-bottom: 14px; margin-top: 8px;">
+            <i class="fas fa-info-circle" style="margin-right: 4px;"></i>已并入当前工作记录
+        </div>
+    `;
+
+    const notification = document.createElement('div');
+    notification.id = 'moyu-new-message-notification';
+    notification.innerHTML = `
+        <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); max-width: 360px; font-family: var(--font-family);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(var(--accent-color-rgb), 0.15); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-fish" style="color: var(--accent-color); font-size: 16px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">滴！${settings.partnerName || '梦角'} 发来一条摸鱼信息</div>
+                </div>
+                <button onclick="window.closeMoyuNewMessageNotification()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; font-size: 16px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            ${detailHtml}
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.openMoyuFromNewMessageNotification()" style="flex: 1; padding: 10px 16px; border: none; border-radius: 10px; background: var(--accent-color); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-family);">
+                    <i class="fas fa-check" style="margin-right: 6px;"></i>查看
+                </button>
+                <button onclick="window.closeMoyuNewMessageNotification()" style="flex: 1; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; font-family: var(--font-family);">
+                    关闭
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+
+    // 5秒后自动关闭
+    setTimeout(() => {
+        const el = document.getElementById('moyu-new-message-notification');
+        if (el) el.remove();
+    }, 5000);
+}
+
+window.closeMoyuNewMessageNotification = function () {
+    const notification = document.getElementById('moyu-new-message-notification');
+    if (notification) notification.remove();
+    window.setMoyuUnread();
+};
+
+window.openMoyuFromNewMessageNotification = function () {
+    const notification = document.getElementById('moyu-new-message-notification');
+    if (notification) notification.remove();
+    window.clearMoyuUnread();
+    if (typeof window.openMoyuModal === 'function') {
+        window.openMoyuModal();
+    }
+};
+
+// 显示工作结束通知
+function showMoyuWorkEndNotification() {
+    const notification = document.createElement('div');
+    notification.id = 'moyu-work-end-notification';
+    notification.innerHTML = `
+        <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); max-width: 360px; font-family: var(--font-family);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(var(--accent-color-rgb), 0.15); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-check-circle" style="color: var(--accent-color); font-size: 16px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">${settings.partnerName || '梦角'} 的工作结束啦</div>
+                </div>
+                <button onclick="document.getElementById('moyu-work-end-notification').remove()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; font-size: 16px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+
+    // 3秒后自动关闭
+    setTimeout(() => {
+        const el = document.getElementById('moyu-work-end-notification');
+        if (el) el.remove();
+    }, 3000);
+}
+
+function showMoyuNotification() {
+    // 移除已存在的通知
+    const existing = document.getElementById('moyu-notification');
+    if (existing) existing.remove();
+
+    const showDetail = settings.moyuShowDetail !== false;
+    const session = moyuWorkSession;
+    const detailHtml = (showDetail && session) ? `
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; padding: 8px; background: var(--primary-bg); border-radius: 8px; line-height: 1.4;">
+            <div style="font-size: 11px; color: var(--accent-color); margin-bottom: 4px;">
+                <i class="fas fa-map-marker-alt" style="margin-right: 4px;"></i>${window.escapeHtml ? window.escapeHtml(session.location) : session.location}
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">
+                <i class="fas fa-clock" style="margin-right: 4px;"></i>预计工作 ${session.totalHours} 小时
+            </div>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">是否现在查看？</div>
+    ` : `
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; margin-top: 8px;">是否现在查看？</div>
+    `;
+
+    const notification = document.createElement('div');
+    notification.id = 'moyu-notification';
+    notification.innerHTML = `
+        <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); max-width: 360px; font-family: var(--font-family);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(var(--accent-color-rgb), 0.15); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-fish" style="color: var(--accent-color); font-size: 16px;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">${settings.partnerName || '梦角'} 开始工作了，是否前去陪伴？</div>
+                </div>
+                <button onclick="window.closeMoyuNotificationWithUnread()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; font-size: 16px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            ${detailHtml}
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.openMoyuFromNotification()" style="flex: 1; padding: 10px 16px; border: none; border-radius: 10px; background: var(--accent-color); color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-family);">
+                    <i class="fas fa-check" style="margin-right: 6px;"></i>现在去
+                </button>
+                <button onclick="window.closeMoyuNotificationWithUnread()" style="flex: 1; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; font-family: var(--font-family);">
+                    等会来
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+
+    // 5秒后自动关闭并标记未读
+    setTimeout(() => {
+        if (document.getElementById('moyu-notification')) {
+            notification.remove();
+            window.setMoyuUnread();
+        }
+    }, 5000);
+}
+
+// 设置摸鱼未读标记
+window.setMoyuUnread = function () {
+    moyuUnread = true;
+    const btn = document.getElementById('moyu-btn');
+    if (btn) {
+        // 先移除已存在的小红点
+        const existingDot = document.getElementById('moyu-unread-dot');
+        if (existingDot) existingDot.remove();
+
+        // 创建小红点
+        const dot = document.createElement('span');
+        dot.id = 'moyu-unread-dot';
+        dot.style.cssText = 'position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; background: #ff4757; border-radius: 50%; border: 2px solid #fff; z-index: 100; pointer-events: none; box-shadow: 0 0 4px rgba(255,71,87,0.5);';
+        
+        // 确保父容器有定位
+        const parent = btn.parentElement;
+        if (parent) {
+            parent.style.position = 'relative';
+            parent.appendChild(dot);
+            // 根据按钮位置调整小红点位置
+            const btnRect = btn.getBoundingClientRect();
+            const parentRect = parent.getBoundingClientRect();
+            dot.style.top = (btn.offsetTop - 4) + 'px';
+            dot.style.right = 'auto';
+            dot.style.left = (btn.offsetLeft + btn.offsetWidth - 6) + 'px';
+        }
+    }
+
+    // 同时显示 Home 页面摸鱼图标的小红点
+    const homeMoyuBadge = document.getElementById('moyu-badge');
+    if (homeMoyuBadge) homeMoyuBadge.style.display = 'block';
+
+    // 保存未读状态
+    try {
+        localforage.setItem(getStorageKey('moyuUnread'), true).catch(() => {});
+    } catch (e) {}
+};
+
+// 清除摸鱼未读标记
+window.clearMoyuUnread = function () {
+    moyuUnread = false;
+    const dot = document.getElementById('moyu-unread-dot');
+    if (dot) dot.remove();
+
+    // 同时清除 Home 页面摸鱼图标的小红点
+    const homeMoyuBadge = document.getElementById('moyu-badge');
+    if (homeMoyuBadge) homeMoyuBadge.style.display = 'none';
+
+    // 保存未读状态
+    try {
+        localforage.setItem(getStorageKey('moyuUnread'), false).catch(() => {});
+    } catch (e) {}
+};
+
+// 关闭通知并标记未读
+window.closeMoyuNotificationWithUnread = function () {
+    const notification = document.getElementById('moyu-notification');
+    if (notification) notification.remove();
+    window.setMoyuUnread();
+};
+
+window.openMoyuFromNotification = function () {
+    // 关闭通知
+    const notification = document.getElementById('moyu-notification');
+    if (notification) notification.remove();
+
+    // 清除未读标记
+    window.clearMoyuUnread();
+
+    // 打开摸鱼小记弹窗
+    if (typeof window.openMoyuModal === 'function') {
+        window.openMoyuModal();
+    }
+};
+
         const updateUI = () => {
             const isCustomTheme = settings.colorTheme.startsWith('custom-');
             if (isCustomTheme) {
@@ -866,12 +1440,19 @@ function manageAutoSendTimer() {
                 '#typing-indicator-toggle': 'typingIndicatorEnabled',
                 '#read-no-reply-toggle': 'allowReadNoReply',
                 '#emoji-mix-toggle': 'emojiMixEnabled',
-                '#auto-send-toggle': 'autoSendEnabled'
+                '#kaomoji-mix-toggle': 'kaomojiMixEnabled',
+                '#auto-send-toggle': 'autoSendEnabled',
+                '#moyu-auto-generate-toggle': 'moyuAutoGenerateEnabled',
+                '#moyu-show-detail-toggle': 'moyuShowDetail',
+                '#envelope-auto-send-toggle': 'envelopeAutoSendEnabled',
+                '#envelope-custom-rule-toggle': 'envelopeCustomRuleEnabled',
+                '#bottom-collapse-cs-toggle': 'bottomCollapseMode',
+                '#enter-key-send-toggle': 'enterKeySendEnabled'
             };
             for (const [sel, prop] of Object.entries(_pillSyncMap)) {
                 const el = document.querySelector(sel);
                 if (el) {
-                    const val = prop === 'emojiMixEnabled' ? (settings[prop] !== false) : !!settings[prop];
+                    const val = (prop === 'emojiMixEnabled' || prop === 'kaomojiMixEnabled') ? (settings[prop] !== false) : !!settings[prop];
                     el.classList.toggle('active', val);
                 }
             }
@@ -880,6 +1461,9 @@ function manageAutoSendTimer() {
 
             renderMessages();
         };
+
+        // 暴露 updateUI 到全局，供 home.js 等模块调用
+        window.updateUI = updateUI;
 
         const updateAvatar = (element, src) => {
             if (src) element.innerHTML = `<img src="${src}" alt="avatar">`; else element.innerHTML = `<i class="fas fa-user"></i>`;
@@ -891,6 +1475,11 @@ function manageAutoSendTimer() {
             localforage.removeItem(getStorageKey('chatBackground'));
             safeRemoveItem(getStorageKey('chatBackground'));
             showNotification('背景图片已移除', 'success');
+            
+            // 同步到 Home 界面（重置为默认）
+            if (typeof window.syncChatBgToHome === 'function') {
+                window.syncChatBgToHome('');
+            }
         };
 
         window.scrollToQuotedMessage = function(el) {
@@ -1028,6 +1617,35 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     } else {
         avatarDiv.style.display = 'none';
     }
+
+    // 对方消息头像添加长按艾特功能
+    if (msg.sender !== 'user' && settings.inChatAvatarEnabled) {
+        (function(avt, grpMem) {
+            var lpTimer = null;
+            avt.addEventListener('pointerdown', function(e) {
+                lpTimer = setTimeout(function() {
+                    // 群聊模式下使用群成员角色名，否则使用全局 partner 昵称
+                    var name = grpMem ? (grpMem.name || '对方').trim() : (settings.partnerName || '对方').trim();
+                    var input = DOMElements.messageInput;
+                    if (input) {
+                        var start = input.selectionStart;
+                        var end = input.selectionEnd;
+                        var before = input.value.substring(0, start);
+                        var after = input.value.substring(end);
+                        input.value = before + '@' + name + ' ' + after;
+                        input.focus();
+                        var newPos = start + name.length + 2;
+                        input.setSelectionRange(newPos, newPos);
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }, 500);
+            });
+            avt.addEventListener('pointerup', function() { clearTimeout(lpTimer); });
+            avt.addEventListener('pointerleave', function() { clearTimeout(lpTimer); });
+            avt.addEventListener('pointercancel', function() { clearTimeout(lpTimer); });
+        })(avatarDiv, groupMember);
+    }
+
     wrapper.appendChild(avatarDiv);
 
     const contentWrapper = document.createElement('div');
@@ -1057,22 +1675,50 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     }
 
     const isImageOnly = !msg.text && !!msg.image;
+    const isRedPacket = msg.type === 'red-packet';
     let content = msg.text ? `<div>${msg.text.replace(/\n/g, '<br>')}</div>` : '';
-    if (msg.image) content += `<img src="${msg.image}" class="message-image${isImageOnly ? ' message-image-only' : ''}" alt="图片" style="max-width:${isImageOnly ? '100px' : '100px'}; border-radius: 12px;${!isImageOnly ? ' margin-top: 6px;' : ''} cursor: pointer;" onclick="viewImage('${msg.image}')">`;
+    if (isRedPacket) {
+        content = window.renderRedPacketMessage ? window.renderRedPacketMessage(msg) : '<div style="padding:10px;color:#c4453c;">红包消息</div>';
+    } else if (msg.image) content += `<img src="${msg.image}" class="message-image${isImageOnly ? ' message-image-only' : ''}" alt="图片" style="max-width:${isImageOnly ? '100px' : '100px'}; border-radius: 12px;${!isImageOnly ? ' margin-top: 6px;' : ''} cursor: pointer;" onclick="viewImage('${msg.image}')">`;
     messageHTML += content;
 
     const messageDiv = document.createElement('div');
-    if (isImageOnly) {
+    if (isRedPacket || isImageOnly) {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} message-image-bubble-none`;
     } else {
         messageDiv.className = `message message-${msg.sender === 'user' ? 'sent' : 'received'} ${settings.bubbleStyle}`;
     }
     messageDiv.innerHTML = messageHTML;
 
+    // 红包卡片点击事件
+    if (isRedPacket) {
+        const rpCard = messageDiv.querySelector('.red-packet-card');
+        if (rpCard) {
+            const rpId = rpCard.dataset.rpId || (msg.redPacket && msg.redPacket.id) || msg.id;
+            rpCard.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (typeof window.showRedPacketReceiveModal === 'function') {
+                    window.showRedPacketReceiveModal(rpId);
+                }
+            });
+        }
+    }
+
     let actionsHTML = '';
     if (settings.replyEnabled) actionsHTML += `<button class="meta-action-btn reply-btn" title="回复"><i class="fas fa-reply"></i></button>`;
+    // 不显示头像时，对方消息添加 @ 按钮
+    if (msg.sender !== 'user' && !settings.inChatAvatarEnabled) {
+        actionsHTML += `<button class="meta-action-btn mention-btn" title="@对方"><i class="fas fa-at"></i></button>`;
+    }
     const starIcon = msg.favorited ? 'fas fa-star' : 'far fa-star';
     actionsHTML += `<button class="meta-action-btn favorite-action-btn ${msg.favorited ? 'favorited' : ''}" title="${msg.favorited ? '取消收藏' : '收藏'}"><i class="${starIcon}"></i></button>`;
+    // 用户发送的消息：5分钟内可撤回
+    if (msg.sender === 'user' && msg.timestamp) {
+        var elapsed = Date.now() - new Date(msg.timestamp).getTime();
+        if (elapsed <= 5 * 60 * 1000) {
+            actionsHTML += `<button class="meta-action-btn recall-btn" title="撤回"><i class="fas fa-undo"></i></button>`;
+        }
+    }
     actionsHTML += `<button class="meta-action-btn delete-btn" title="删除"><i class="fas fa-trash-alt"></i></button>`;
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'message-meta-actions';
@@ -1124,9 +1770,11 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
             }
         }
         metaDiv.innerHTML = metaHTML;
-        contentWrapper.append(actionsDiv, messageDiv, metaDiv);
+        // 功能栏绑定在消息头部（messageDiv 之前）
+        contentWrapper.append(messageDiv, actionsDiv, metaDiv);
     } else {
-        contentWrapper.append(actionsDiv, messageDiv);
+        // 功能栏绑定在消息头部（messageDiv 之前）
+        contentWrapper.append(messageDiv, actionsDiv);
     }
     wrapper.appendChild(contentWrapper);
     fragment.appendChild(wrapper);
@@ -1249,6 +1897,29 @@ const addMessage = (message) => {
     });
 
     throttledSaveData();
+
+    // 如果是对方发送的消息，且 Home 界面正在显示，触发通知横幅
+    if (message.sender && message.sender !== 'user' && message.sender !== 'system' && message.type !== 'system' && message.type !== 'call-event') {
+        const homeContainer = document.getElementById('home-container');
+        if (homeContainer && homeContainer.style.display !== 'none') {
+            if (typeof window.showHomeNotification === 'function') {
+                // 获取对方头像：优先从 DOM 获取，其次从 settings/profileData 获取
+                const partnerAvatarImg = document.querySelector('.partner-avatar img');
+                let avatarSrc = partnerAvatarImg ? partnerAvatarImg.src : '';
+                if (!avatarSrc && window.settings && window.settings.partnerAvatar) {
+                    avatarSrc = window.settings.partnerAvatar;
+                }
+                if (!avatarSrc && window.profileData && window.profileData.partner) {
+                    avatarSrc = window.profileData.partner.avatar || '';
+                }
+                window.showHomeNotification({
+                    sender: message.sender,
+                    text: message.image ? '[图片]' : (message.text || ''),
+                    avatar: avatarSrc
+                });
+            }
+        }
+    }
 };
 
         window._addCallEvent = (icon, label, detail) => {
@@ -1386,14 +2057,16 @@ const addMessage = (message) => {
                 const cmd = text.replace(/\s+/g, '').toLowerCase();
                 if (cmd === '/测试拍一拍' || cmd === '/testpoke') {
                     DOMElements.messageInput.value = '';
-                    DOMElements.messageInput.style.height = '46px';
+                    DOMElements.messageInput.style.height = '36px';
+                    DOMElements.messageInput.style.overflow = 'hidden';
                     if (typeof window._triggerPartnerPoke === 'function') window._triggerPartnerPoke();
                     if (typeof showNotification === 'function') showNotification('✦ 强制触发对方拍一拍', 'info', 1800);
                     return;
                 }
                 if (cmd === '/测试状态更新' || cmd === '/teststatus') {
                     DOMElements.messageInput.value = '';
-                    DOMElements.messageInput.style.height = '46px';
+                    DOMElements.messageInput.style.height = '36px';
+                    DOMElements.messageInput.style.overflow = 'hidden';
                     if (typeof window._triggerStatusChange === 'function') window._triggerStatusChange();
                     if (typeof showNotification === 'function') showNotification('✦ 强制触发状态更新', 'info', 1800);
                     return;
@@ -1401,7 +2074,8 @@ const addMessage = (message) => {
             }
 
             DOMElements.messageInput.value = '';
-            DOMElements.messageInput.style.height = '46px';
+            DOMElements.messageInput.style.height = '36px';
+            DOMElements.messageInput.style.overflow = 'hidden';
             if (imageFile && imageFile.size > MAX_IMAGE_SIZE) {
                 showNotification('图片大小不能超过5MB', 'error'); DOMElements.imageInput.value = ''; return;
             }
@@ -1479,6 +2153,15 @@ if (!isBatchMode && type === 'normal') {
                 createMessage();
             }
             DOMElements.imageInput.value = '';
+
+            // 发送后恢复到底部栏的输入前状态
+            if (typeof window._collapseStateBeforeInput !== 'undefined' && typeof window._applyCollapseState === 'function') {
+                const isCurrentlyCollapsed = document.body.classList.contains('bottom-collapse-mode');
+                if (isCurrentlyCollapsed !== window._collapseStateBeforeInput) {
+                    window._applyCollapseState(window._collapseStateBeforeInput);
+                }
+                delete window._collapseStateBeforeInput;
+            }
         }
 
         function toggleBatchMode() {
@@ -1499,7 +2182,9 @@ if (!isBatchMode && type === 'normal') {
             batchMessages.push({
                 id: Date.now() + batchMessages.length, text: text || '', image: imageOverride || null
             });
-            DOMElements.messageInput.value = ''; DOMElements.messageInput.style.height = '46px';
+            DOMElements.messageInput.value = '';
+            DOMElements.messageInput.style.height = '36px';
+            DOMElements.messageInput.style.overflow = 'hidden';
             updateBatchPreview();
         }
 
@@ -1699,14 +2384,29 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
 
                     let finalText = replyText;
                     let separateEmoji = null;
+                    let separateKaomoji = null;
+                    
+                    // Emoji 混入逻辑
                     if (customEmojis && customEmojis.length > 0 && Math.random() < 0.2) {
                         const emoji = customEmojis[Math.floor(Math.random() * customEmojis.length)];
                         if (settings.emojiMixEnabled !== false) {
                             finalText = Math.random() < 0.5
-                                ? emoji + ' ' + replyText
-                                : replyText + ' ' + emoji;
+                                ? emoji + ' ' + finalText
+                                : finalText + ' ' + emoji;
                         } else {
                             separateEmoji = emoji;
+                        }
+                    }
+                    
+                    // 颜文字混入逻辑
+                    if (kaomojiLibrary && kaomojiLibrary.length > 0 && Math.random() < 0.25) {
+                        const kaomoji = kaomojiLibrary[Math.floor(Math.random() * kaomojiLibrary.length)];
+                        if (settings.kaomojiMixEnabled !== false) {
+                            finalText = Math.random() < 0.5
+                                ? kaomoji + ' ' + finalText
+                                : finalText + ' ' + kaomoji;
+                        } else {
+                            separateKaomoji = kaomoji;
                         }
                     }
 
@@ -1765,6 +2465,22 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                         }, 300 + Math.random() * 400);
                     }
 
+                    if (separateKaomoji) {
+                        setTimeout(() => {
+                            addMessage({
+                                id: Date.now() + i + 1200,
+                                sender: settings.partnerName || '对方',
+                                text: separateKaomoji,
+                                timestamp: new Date(),
+                                status: 'received',
+                                favorited: false,
+                                note: null,
+                                type: 'normal'
+                            });
+                            playSound('message');
+                        }, 350 + Math.random() * 400);
+                    }
+
                     if (i === replyCount - 1) {
                         (function() {
                             try {
@@ -1787,6 +2503,18 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 }
                             }
                         })();
+                        // 系统随机发红包（在回复完成后触发）
+                        if (typeof window.trySystemRedPacket === 'function') {
+                            setTimeout(function() { window.trySystemRedPacket(); }, 800 + Math.random() * 1200);
+                        }
+                        // 系统随机收取待领取红包
+                        if (typeof window.tryCollectPendingRedPacket === 'function') {
+                            setTimeout(function() { window.tryCollectPendingRedPacket(); }, 1200 + Math.random() * 1500);
+                        }
+                        // 检查24小时过期红包
+                        if (typeof window.checkRedPacketExpiry === 'function') {
+                            setTimeout(function() { window.checkRedPacketExpiry(); }, 500);
+                        }
                     }
                     } catch (e) {
                         console.error('[simulateReply] 渲染/回填出错:', e);
@@ -1833,6 +2561,10 @@ function showModal(modalElement, focusElement = null) {
             }, 300);
         }
 
+        // 挂载到 window 供主页等模块调用
+        window.showModal = showModal;
+        window.hideModal = hideModal;
+
         function viewImage(src) {
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;animation:fadeIn 0.2s ease;touch-action:pinch-zoom;';
@@ -1874,9 +2606,9 @@ function showModal(modalElement, focusElement = null) {
                             <span>字卡回复库</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);transition:border-color 0.2s;">
-                            <input type="checkbox" id="_exp_ann" style="accent-color:var(--accent-color);width:15px;height:15px;">
-                            <i class="fas fa-calendar-heart" style="color:var(--accent-color);width:16px;text-align:center;"></i>
-                            <span>纪念日 / 倒计时</span>
+                            <input type="checkbox" id="_exp_envelope" style="accent-color:var(--accent-color);width:15px;height:15px;">
+                            <i class="fas fa-envelope" style="color:var(--accent-color);width:16px;text-align:center;"></i>
+                            <span>信封投递</span>
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border-color);border-radius:12px;background:var(--primary-bg);font-size:13px;color:var(--text-primary);transition:border-color 0.2s;">
                             <input type="checkbox" id="_exp_themes" style="accent-color:var(--accent-color);width:15px;height:15px;">
@@ -1903,10 +2635,10 @@ function showModal(modalElement, focusElement = null) {
                 const inclMsgs     = !!document.getElementById('_exp_msgs')?.checked;
                 const inclSettings = !!document.getElementById('_exp_settings')?.checked;
                 const inclReplies  = !!document.getElementById('_exp_replies')?.checked;
-                const inclAnn      = !!document.getElementById('_exp_ann')?.checked;
+                const inclEnvelope = !!document.getElementById('_exp_envelope')?.checked;
                 const inclThemes   = !!document.getElementById('_exp_themes')?.checked;
 
-                if (!inclMsgs && !inclSettings && !inclReplies && !inclAnn && !inclThemes) {
+                if (!inclMsgs && !inclSettings && !inclReplies && !inclEnvelope && !inclThemes) {
                     showNotification('请至少选择一项导出内容', 'error');
                     return;
                 }
@@ -1952,7 +2684,10 @@ function showModal(modalElement, focusElement = null) {
                         if (customEmojis && customEmojis.length > 0) exportObj.customEmojis = customEmojis;
                         exportObj.exportModules.push('customReplies');
                     }
-                    if (inclAnn)      { exportObj.anniversaries = anniversaries; exportObj.exportModules.push('anniversaries'); }
+                    if (inclEnvelope) {
+                        exportObj.envelopeData = typeof envelopeData !== 'undefined' ? envelopeData : null;
+                        exportObj.exportModules.push('envelopeData');
+                    }
                     if (inclThemes)   {
                         exportObj.customThemes = customThemes;
                         // stickerLibrary 体积较大，这里不再随聊天备份导出
@@ -2071,8 +2806,11 @@ function showModal(modalElement, focusElement = null) {
                         const emojis = parseVal(getVal('customEmojis'));
                         if (Array.isArray(emojis)) converted.customEmojis = emojis;
 
-                        const ann = parseVal(getVal('anniversaries'));
-                        if (Array.isArray(ann)) { converted.anniversaries = ann; converted.exportModules.push('anniversaries'); }
+                        const envelope = parseVal(getVal('envelopeData'));
+                        if (envelope && (Array.isArray(envelope.outbox) || Array.isArray(envelope.inbox) || Array.isArray(envelope.spacetime))) {
+                            converted.envelopeData = envelope;
+                            converted.exportModules.push('envelopeData');
+                        }
 
                         const themes = parseVal(allKv[appPfx + 'customThemes'] !== undefined ? allKv[appPfx + 'customThemes'] : (ls[appPfx + 'customThemes'] || null));
                         if (themes) { converted.customThemes = themes; converted.exportModules.push('themes'); }
@@ -2083,10 +2821,10 @@ function showModal(modalElement, focusElement = null) {
                     const hasMessages  = importedData.messages && Array.isArray(importedData.messages);
                     const hasSettings  = !!importedData.settings;
                     const hasReplies   = importedData.customReplies && Array.isArray(importedData.customReplies);
-                    const hasAnn       = importedData.anniversaries && Array.isArray(importedData.anniversaries);
+                    const hasEnvelope  = importedData.envelopeData && (Array.isArray(importedData.envelopeData.outbox) || Array.isArray(importedData.envelopeData.inbox) || Array.isArray(importedData.envelopeData.spacetime));
                     const hasThemes    = !!importedData.customThemes || !!importedData.stickerLibrary;
 
-                    if (!hasMessages && !hasSettings && !hasReplies && !hasAnn && !hasThemes) {
+                    if (!hasMessages && !hasSettings && !hasReplies && !hasEnvelope && !hasThemes) {
                         throw new Error('无效的聊天记录文件（未检测到可识别的数据模块）');
                     }
 
@@ -2112,7 +2850,7 @@ function showModal(modalElement, focusElement = null) {
                                 ${makeRow('_imp_msgs', 'fas fa-comments', '聊天记录', hasMessages ? `(${importedData.messages.length} 条)` : '', hasMessages, true)}
                                 ${makeRow('_imp_settings', 'fas fa-sliders-h', '外观与聊天设置', '', hasSettings, true)}
                                 ${makeRow('_imp_replies', 'fas fa-reply', '字卡回复库', '', hasReplies, false)}
-                                ${makeRow('_imp_ann', 'fas fa-calendar-heart', '纪念日 / 倒计时', '', hasAnn, false)}
+                                ${makeRow('_imp_envelope', 'fas fa-envelope', '信封投递', '', hasEnvelope, false)}
                                 ${makeRow('_imp_themes', 'fas fa-palette', '自定义主题配色', '', hasThemes, false)}
                             </div>
                             <div style="display:flex;gap:10px;">
@@ -2134,10 +2872,10 @@ function showModal(modalElement, focusElement = null) {
                         const doMsgs     = hasMessages  && !!document.getElementById('_imp_msgs')?.checked;
                         const doSettings = hasSettings  && !!document.getElementById('_imp_settings')?.checked;
                         const doReplies  = hasReplies   && !!document.getElementById('_imp_replies')?.checked;
-                        const doAnn      = hasAnn       && !!document.getElementById('_imp_ann')?.checked;
+                        const doEnvelope = hasEnvelope  && !!document.getElementById('_imp_envelope')?.checked;
                         const doThemes   = hasThemes    && !!document.getElementById('_imp_themes')?.checked;
 
-                        if (!doMsgs && !doSettings && !doReplies && !doAnn && !doThemes) {
+                        if (!doMsgs && !doSettings && !doReplies && !doEnvelope && !doThemes) {
                             showNotification('请至少选择一项导入内容', 'error');
                             return;
                         }
@@ -2163,7 +2901,14 @@ function showModal(modalElement, focusElement = null) {
                         }
                         if (doReplies  && importedData.customReplies)  customReplies  = importedData.customReplies;
                         if (doReplies  && importedData.customEmojis && Array.isArray(importedData.customEmojis)) customEmojis = importedData.customEmojis;
-                        if (doAnn      && importedData.anniversaries)   anniversaries  = importedData.anniversaries;
+                        if (doEnvelope && importedData.envelopeData) {
+                            if (typeof envelopeData !== 'undefined') {
+                                if (importedData.envelopeData.outbox) envelopeData.outbox = importedData.envelopeData.outbox;
+                                if (importedData.envelopeData.inbox) envelopeData.inbox = importedData.envelopeData.inbox;
+                                if (importedData.envelopeData.spacetime) envelopeData.spacetime = importedData.envelopeData.spacetime;
+                                if (typeof saveEnvelopeData === 'function') saveEnvelopeData();
+                            }
+                        }
                         if (doThemes   && importedData.customThemes)    customThemes   = importedData.customThemes;
                         if (doThemes   && importedData.stickerLibrary)  stickerLibrary = importedData.stickerLibrary;
 
@@ -2288,15 +3033,19 @@ window.initializeSession = async function() {
 
     const sessionsData = await localforage.getItem(`${APP_PREFIX}sessionList`);
     sessionList = sessionsData || [];
+    window.sessionList = sessionList; // 暴露到 window，供其他模块使用
 
     const hash = window.location.hash.substring(1);
     if (hash && sessionList.some(s => s.id === hash)) {
         SESSION_ID = hash;
+        window.SESSION_ID = SESSION_ID;
     } else if (sessionList.length > 0) {
         const lastId = await localforage.getItem(`${APP_PREFIX}lastSessionId`);
         SESSION_ID = lastId && sessionList.some(s => s.id === lastId) ? lastId : sessionList[0].id;
+        window.SESSION_ID = SESSION_ID;
     } else {
         SESSION_ID = await createNewSession(false);
+        window.SESSION_ID = SESSION_ID;
     }
 
     await localforage.setItem(`${APP_PREFIX}lastSessionId`, SESSION_ID);

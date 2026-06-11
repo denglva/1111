@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         welcomeScreen.classList.add('hidden');
         setTimeout(() => {
             welcomeScreen.style.display = 'none';
+            // 加载动画结束后显示主页
+            if (typeof window.showHomePage === 'function') {
+                window.showHomePage();
+            }
         }, 800);
     };
 
@@ -55,8 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoader('正在渲染我们的世界...', '70%');
         
         await Promise.allSettled([
-            safeAwait(initializeRandomUI?.()),
-            safeAwait(initMusicPlayer?.())
+            safeAwait(initializeRandomUI?.())
         ]);
 
         setInterval(checkStatusChange, 60000);
@@ -199,6 +202,8 @@ const stickerInput = document.getElementById('sticker-file-input');
                         try {
                             const base64 = await optimizeImage(file, 300, 0.8);
                             stickerLibrary.push(base64);
+                            // 同步更新全局变量
+                            window._stickerLibrary = stickerLibrary;
                             successCount++;
                         } catch (err) {
                             console.error(err);

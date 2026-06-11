@@ -826,9 +826,19 @@ function renderFavorites() {
             month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit'
         }) : '';
-        const content = msg.text
-            ? msg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            : (msg.image ? `<img src="${msg.image}" style="max-width:100%;max-height:180px;border-radius:8px;display:block;margin-top:4px;cursor:pointer;" onclick="if(typeof viewImage==='function')viewImage('${msg.image.replace(/'/g,'\\\'')}')" loading="lazy">` : '');
+        let content = '';
+        if (msg.type === 'share' && msg.shareData) {
+            content = `[分享商品：]${msg.shareData.name || ''}`;
+        } else if (msg.type === 'pay-request' && msg.shareData) {
+            content = `[分享商品：]${msg.shareData.name || ''}`;
+        } else if (msg.type === 'red-packet' && msg.redPacket) {
+            const amount = msg.redPacket.amount || 0;
+            content = `[红包信息:]¥${amount}`;
+        } else if (msg.text) {
+            content = msg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        } else if (msg.image) {
+            content = `<img src="${msg.image}" style="max-width:100%;max-height:180px;border-radius:8px;display:block;margin-top:4px;cursor:pointer;" onclick="if(typeof viewImage==='function')viewImage('${msg.image.replace(/'/g,'\\\'')}')" loading="lazy">`;
+        }
         const avatarEl = isUser
             ? (typeof DOMElements !== 'undefined' ? DOMElements.me.avatar : null)
             : (typeof DOMElements !== 'undefined' ? DOMElements.partner.avatar : null);
@@ -1329,9 +1339,90 @@ function initComboMenu() {
             `;
             return;
         }
+
+        const groups = window.customStickerGroups || [];
+        const disabledSet = (function() {
+            try { const r = localStorage.getItem('disabledStickerItems'); return r ? new Set(JSON.parse(r)) : new Set(); } catch { return new Set(); }
+        })();
+
+        // 过滤掉被屏蔽的表情
+        const enabledStickers = stickerLibrary.filter(s => !disabledSet.has(s));
+
+        if (groups.length === 0) {
+            // 没有分组，直接渲染全部
+            _renderPartnerStickerGrid(contentArea, enabledStickers);
+            return;
+        }
+
+        // 有分组时，渲染分类标签栏 + 内容区
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+
+        // 分类标签栏（仿微信样式，水平滚动）
+        const tabBar = document.createElement('div');
+        tabBar.style.cssText = 'display:flex;gap:0;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border-color);scrollbar-width:none;-ms-overflow-style:none;';
+        tabBar.className = 'sticker-group-tab-bar';
+
+        // "全部"标签
+        const allTab = document.createElement('button');
+        allTab.className = 'sticker-group-tab active';
+        allTab.textContent = '全部';
+        allTab.dataset.groupId = 'all';
+        tabBar.appendChild(allTab);
+
+        groups.forEach(g => {
+            const tab = document.createElement('button');
+            tab.className = 'sticker-group-tab';
+            tab.dataset.groupId = String(g.id);
+            const count = (g.items || []).filter(t => enabledStickers.includes(t)).length;
+            tab.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color || '#868E96'};margin-right:4px;flex-shrink:0;"></span>${g.name}${count > 0 ? ` (${count})` : ''}`;
+            if (g.disabled) tab.style.opacity = '0.4';
+            tabBar.appendChild(tab);
+        });
+
+        wrapper.appendChild(tabBar);
+
+        // 内容区
+        const contentDiv = document.createElement('div');
+        contentDiv.style.cssText = 'flex:1;overflow-y:auto;overflow-x:hidden;';
+        contentDiv.className = 'sticker-group-content';
+        wrapper.appendChild(contentDiv);
+
+        contentArea.appendChild(wrapper);
+
+        // 标签切换事件
+        tabBar.addEventListener('click', (e) => {
+            const tab = e.target.closest('.sticker-group-tab');
+            if (!tab) return;
+            tabBar.querySelectorAll('.sticker-group-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const groupId = tab.dataset.groupId;
+            if (groupId === 'all') {
+                _renderPartnerStickerGrid(contentDiv, enabledStickers);
+            } else {
+                const g = groups.find(g => String(g.id) === groupId);
+                if (g && !g.disabled) {
+                    const filtered = (g.items || []).filter(t => enabledStickers.includes(t));
+                    _renderPartnerStickerGrid(contentDiv, filtered);
+                } else {
+                    contentDiv.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-secondary);opacity:0.6;">该分组已屏蔽或无内容</div>';
+                }
+            }
+        });
+
+        // 默认显示全部
+        _renderPartnerStickerGrid(contentDiv, enabledStickers);
+    }
+
+    function _renderPartnerStickerGrid(container, stickers) {
+        container.innerHTML = '';
+        if (stickers.length === 0) {
+            container.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-secondary);opacity:0.6;">暂无表情包</div>';
+            return;
+        }
         const grid = document.createElement('div');
         grid.className = 'sticker-grid-view';
-        stickerLibrary.forEach(src => {
+        stickers.forEach(src => {
             const item = makeStickerItem(src, () => {
                 addMessage({ id: Date.now(), sender: 'user', text: '', timestamp: new Date(), image: src, status: 'sent', type: 'normal' });
                 playSound('send');
@@ -1341,7 +1432,7 @@ function initComboMenu() {
             });
             grid.appendChild(item);
         });
-        contentArea.appendChild(grid);
+        container.appendChild(grid);
     }
 
     function renderStickerLibrary() { renderMyStickerLibrary(); }

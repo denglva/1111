@@ -894,6 +894,17 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
     window.callFeature = { startCall, endCall, showIncomingCall, restoreWindow, minimizeWindow };
 
+    // 页面刷新/关闭时，如果正在通话则自动挂断并保存记录
+    window.addEventListener('beforeunload', function() {
+        if (S.active) {
+            const dur = S.elapsed;
+            S.active = false; S.startTime = null;
+            cancelAnimationFrame(S.timerRAF);
+            clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer);
+            sendCallMsg(dur);
+        }
+    });
+
     function init() {
         injectCSS();
         injectHTML();
