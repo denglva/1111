@@ -559,6 +559,20 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     function sendCallEvent(icon, label, detail) {
         if (typeof window._addCallEvent === 'function') {
             window._addCallEvent(icon, label, detail);
+        } else if (typeof window.messages !== 'undefined') {
+            // 降级：直接写入 messages 数组（适用于 beforeunload 等异步不可用场景）
+            window.messages.push({
+                id: Date.now() + Math.random(),
+                sender: 'system',
+                text: label + (detail ? ' · ' + detail : ''),
+                timestamp: new Date(),
+                status: 'received',
+                type: 'call-event',
+                callIcon: icon || 'fa-video',
+                callDetail: detail || null,
+                favorited: false,
+                note: null,
+            });
         } else {
             let tries = 0;
             const t = setInterval(() => {
@@ -902,6 +916,10 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             cancelAnimationFrame(S.timerRAF);
             clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer);
             sendCallMsg(dur);
+            // 确保同步保存，不依赖 throttledSaveData 的 500ms 延迟
+            if (typeof window._backupCriticalData === 'function') {
+                window._backupCriticalData();
+            }
         }
     });
 

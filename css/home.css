@@ -8,7 +8,7 @@
     background-image: 
 radial-gradient(circle at 20% 80%, rgba(184, 169, 201, 0.08) 0%, transparent 50%),
 radial-gradient(circle at 80% 20%, rgba(200, 200, 200, 0.1) 0%, transparent 50%);
-    z-index: -1;
+    z-index: 1;
     transition: background 0.5s ease;
 }
 
@@ -31,6 +31,8 @@ body.home-active {
     display: none; /* 默认隐藏 */
     align-self: center;
     flex-shrink: 0;
+    position: relative;
+    z-index: 3;
 }
 
 .home-container.active {

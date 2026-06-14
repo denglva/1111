@@ -88,12 +88,27 @@
     function updateMyPosition(data, x, y) {
         data.myPosition = { x: Math.round(x), y: Math.round(y) };
         if (data.locations) {
+            var found = false;
             for (var i = 0; i < data.locations.length; i++) {
                 if (data.locations[i].type === 'me') {
                     data.locations[i].x = data.myPosition.x;
                     data.locations[i].y = data.myPosition.y;
+                    found = true;
                     break;
                 }
+            }
+            // 如果当前地图没有"我的位置"，自动添加
+            if (!found) {
+                data.locations.unshift({
+                    id: 'me',
+                    x: data.myPosition.x,
+                    y: data.myPosition.y,
+                    name: '我的位置',
+                    type: 'me',
+                    icon: 'fa-location-dot',
+                    color: '#7BC8A4',
+                    hasSubmap: false
+                });
             }
         }
     }
@@ -245,6 +260,78 @@
     var currentTerrainType = 'grass';
     var currentRoutePoints = [];
     var currentRouteColor = ROUTE_COLORS[0];
+
+    // 地形编辑历史记录（撤销/重做）
+    var terrainHistory = [];
+    var terrainHistoryIndex = -1;
+    var MAX_TERRAIN_HISTORY = 50;
+
+    // 保存地形编辑历史
+    function pushTerrainHistory() {
+        var data = currentData();
+        var snapshot = JSON.stringify(data.terrain || []);
+        // 如果当前不是最后一条，删除后面的历史
+        if (terrainHistoryIndex < terrainHistory.length - 1) {
+            terrainHistory = terrainHistory.slice(0, terrainHistoryIndex + 1);
+        }
+        terrainHistory.push(snapshot);
+        terrainHistoryIndex++;
+        if (terrainHistory.length > MAX_TERRAIN_HISTORY) {
+            terrainHistory.shift();
+            terrainHistoryIndex--;
+        }
+        updateUndoRedoButtons();
+    }
+
+    // 撤销
+    function undoTerrainEdit() {
+        if (terrainHistoryIndex > 0) {
+            terrainHistoryIndex--;
+            var data = currentData();
+            data.terrain = JSON.parse(terrainHistory[terrainHistoryIndex]);
+            saveMapData();
+            updateUndoRedoButtons();
+            if (typeof showNotification === 'function') {
+                showNotification('已撤销', 'info');
+            }
+        }
+    }
+
+    // 恢复
+    function redoTerrainEdit() {
+        if (terrainHistoryIndex < terrainHistory.length - 1) {
+            terrainHistoryIndex++;
+            var data = currentData();
+            data.terrain = JSON.parse(terrainHistory[terrainHistoryIndex]);
+            saveMapData();
+            updateUndoRedoButtons();
+            if (typeof showNotification === 'function') {
+                showNotification('已恢复', 'info');
+            }
+        }
+    }
+
+    // 初始化地形历史（进入地形编辑时）
+    function initTerrainHistory() {
+        var data = currentData();
+        terrainHistory = [JSON.stringify(data.terrain || [])];
+        terrainHistoryIndex = 0;
+        updateUndoRedoButtons();
+    }
+
+    // 更新撤销/重做按钮状态
+    function updateUndoRedoButtons() {
+        var undoBtn = document.getElementById('terrain-undo-btn');
+        var redoBtn = document.getElementById('terrain-redo-btn');
+        if (undoBtn) {
+            undoBtn.style.opacity = terrainHistoryIndex > 0 ? '1' : '0.3';
+            undoBtn.style.pointerEvents = terrainHistoryIndex > 0 ? 'auto' : 'none';
+        }
+        if (redoBtn) {
+            redoBtn.style.opacity = terrainHistoryIndex < terrainHistory.length - 1 ? '1' : '0.3';
+            redoBtn.style.pointerEvents = terrainHistoryIndex < terrainHistory.length - 1 ? 'auto' : 'none';
+        }
+    }
 
     // 头像图片缓存
     var _meAvatarImg = null;
@@ -530,7 +617,11 @@
             +       '<i class="fas fa-road" style="width:16px;text-align:center;color:#888;"></i>道路'
             +     '</div>'
             +     '<div style="border-top:1px solid var(--border-color);margin:8px 0;"></div>'
-            +     '<button id="terrain-delete-btn" style="width:100%;padding:6px;border:1px solid rgba(255,80,80,0.3);border-radius:8px;background:rgba(255,80,80,0.08);color:#e74c3c;font-size:12px;cursor:pointer;font-family:var(--font-family);"><i class="fas fa-eraser"></i> 擦除模式</button>'
+            +     '<button id="terrain-delete-btn" style="width:100%;padding:6px;border:1px solid rgba(255,80,80,0.3);border-radius:8px;background:rgba(255,80,80,0.08);color:#e74c3c;font-size:12px;cursor:pointer;font-family:var(--font-family);margin-bottom:8px;"><i class="fas fa-eraser"></i> 擦除模式</button>'
+            +     '<div style="display:flex;gap:6px;">'
+            +       '<button id="terrain-undo-btn" title="撤销 (Ctrl+Z)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:8px;background:var(--primary-bg);color:var(--text-primary);font-size:12px;cursor:pointer;font-family:var(--font-family);opacity:0.3;pointer-events:none;"><i class="fas fa-undo"></i> 撤销</button>'
+            +       '<button id="terrain-redo-btn" title="恢复 (Ctrl+Y)" style="flex:1;padding:6px;border:1px solid var(--border-color);border-radius:8px;background:var(--primary-bg);color:var(--text-primary);font-size:12px;cursor:pointer;font-family:var(--font-family);opacity:0.3;pointer-events:none;"><i class="fas fa-redo"></i> 恢复</button>'
+            +     '</div>'
             +   '</div>'
 
             // 右侧工具栏
@@ -641,45 +732,12 @@
             });
         }
 
-        // 统计信息
-        var sharedCount = locs.filter(function (l) { return l.shared; }).length;
-        var totalDist = 0;
-        if (locs.length >= 2) {
-            for (var i = 1; i < locs.length; i++) {
-                totalDist += distance(locs[i - 1].x, locs[i - 1].y, locs[i].x, locs[i].y);
-            }
-        }
-        var submapCount = data.submaps ? data.submaps.length : 0;
-        var routeCount = data.routes ? data.routes.length : 0;
+        var html = '';
 
-        var html = ''
-            // 统计面板
-            + '<div style="padding:10px 16px;display:flex;gap:8px;overflow-x:auto;">'
-            +   '<div style="flex-shrink:0;background:rgba(var(--accent-color-rgb),0.1);border-radius:var(--radius-xs);padding:8px 12px;text-align:center;min-width:70px;">'
-            +     '<div style="font-size:16px;font-weight:700;color:var(--accent-color);">' + sharedCount + '</div>'
-            +     '<div style="font-size:10px;color:var(--text-secondary);">共享地点</div>'
-            +   '</div>'
-            +   '<div style="flex-shrink:0;background:rgba(52,152,219,0.1);border-radius:var(--radius-xs);padding:8px 12px;text-align:center;min-width:70px;">'
-            +     '<div style="font-size:16px;font-weight:700;color:#3498db;">' + Math.round(totalDist) + '</div>'
-            +     '<div style="font-size:10px;color:var(--text-secondary);">总距离</div>'
-            +   '</div>'
-            +   '<div style="flex-shrink:0;background:rgba(155,89,182,0.1);border-radius:var(--radius-xs);padding:8px 12px;text-align:center;min-width:70px;">'
-            +     '<div style="font-size:16px;font-weight:700;color:#9b59b6;">' + submapCount + '</div>'
-            +     '<div style="font-size:10px;color:var(--text-secondary);">子地图</div>'
-            +   '</div>'
-            +   '<div style="flex-shrink:0;background:rgba(231,76,60,0.1);border-radius:var(--radius-xs);padding:8px 12px;text-align:center;min-width:70px;">'
-            +     '<div style="font-size:16px;font-weight:700;color:#e74c3c;">' + routeCount + '</div>'
-            +     '<div style="font-size:10px;color:var(--text-secondary);">路线</div>'
-            +   '</div>'
-            + '</div>';
-
-        if (filteredLocs.length === 0) {
-            html += '<div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">'
-                + '<i class="fas fa-map-marker-alt" style="font-size:24px;opacity:0.3;margin-bottom:8px;display:block;"></i>'
-                + (searchQuery ? '没有找到匹配的地点' : '暂无地点，点击右侧工具添加')
-                + '</div>';
-        } else {
-            html += '<div style="padding:0 12px 12px;">';
+        // 地点列表
+        if (filteredLocs.length > 0) {
+            html += '<div style="padding:10px 12px 6px;font-size:12px;font-weight:600;color:var(--text-secondary);">地点</div>';
+            html += '<div style="padding:0 12px 8px;">';
             for (var i = 0; i < filteredLocs.length; i++) {
                 var loc = filteredLocs[i];
                 var cat = LOCATION_CATEGORIES.find(function (c) { return c.id === loc.category; }) || LOCATION_CATEGORIES[6];
@@ -689,7 +747,6 @@
                     +   '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + loc.name + '</div>'
                     +   '<div style="font-size:11px;color:var(--text-secondary);">' + cat.name + ' · (' + loc.x + ', ' + loc.y + ')</div>'
                     + '</div>'
-                    + (loc.shared ? '<i class="fas fa-share-alt" style="color:var(--accent-color);font-size:12px;"></i>' : '')
                     + (loc.hasSubmap ? '<i class="fas fa-sitemap" style="color:#9b59b6;font-size:12px;margin-right:4px;"></i>' : '')
                     + '<button class="map-loc-edit" data-loc-id="' + loc.id + '" style="width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0.5;"><i class="fas fa-pen"></i></button>'
                     + '<button class="map-loc-delete" data-loc-id="' + loc.id + '" style="width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0.5;"><i class="fas fa-trash-alt"></i></button>'
@@ -698,12 +755,41 @@
             html += '</div>';
         }
 
+        // 子地图列表
+        var submaps = data.submaps || [];
+        if (submaps.length > 0) {
+            html += '<div style="padding:10px 12px 6px;font-size:12px;font-weight:600;color:var(--text-secondary);">子地图</div>';
+            html += '<div style="padding:0 12px 12px;">';
+            for (var i = 0; i < submaps.length; i++) {
+                var sm = submaps[i];
+                var smData = allMapData[sm.key];
+                var smName = smData && smData.name ? smData.name : sm.name;
+                html += '<div class="map-submap-item" data-submap-key="' + sm.key + '" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--radius-xs);margin-bottom:4px;background:var(--primary-bg);cursor:pointer;transition:background 0.2s;">'
+                    + '<div style="width:32px;height:32px;border-radius:8px;background:rgba(155,89,182,0.15);display:flex;align-items:center;justify-content:center;"><i class="fas fa-layer-group" style="color:#9b59b6;font-size:14px;"></i></div>'
+                    + '<div style="flex:1;">'
+                    +   '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + escapeHtml(smName) + '</div>'
+                    +   '<div style="font-size:11px;color:var(--text-secondary);">(' + Math.round(sm.x) + ', ' + Math.round(sm.y) + ') · ' + Math.round(sm.w) + '×' + Math.round(sm.h) + '</div>'
+                    + '</div>'
+                    + '<button class="map-submap-edit" data-submap-key="' + sm.key + '" style="width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0.5;"><i class="fas fa-pen"></i></button>'
+                    + '<button class="map-submap-delete" data-submap-key="' + sm.key + '" style="width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0.5;"><i class="fas fa-trash-alt"></i></button>'
+                    + '</div>';
+            }
+            html += '</div>';
+        }
+
+        if (filteredLocs.length === 0 && submaps.length === 0) {
+            html += '<div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">'
+                + '<i class="fas fa-map-marker-alt" style="font-size:24px;opacity:0.3;margin-bottom:8px;display:block;"></i>'
+                + (searchQuery ? '没有找到匹配的地点' : '暂无地点，点击右侧工具添加')
+                + '</div>';
+        }
+
         container.innerHTML = html;
 
         // 绑定地点点击（定位到地图上）
         container.querySelectorAll('.map-loc-item').forEach(function (item) {
             item.addEventListener('click', function (e) {
-                if (e.target.closest('.map-loc-delete')) return;
+                if (e.target.closest('.map-loc-delete') || e.target.closest('.map-loc-edit')) return;
                 var locId = this.getAttribute('data-loc-id');
                 var loc = data.locations.find(function (l) { return l.id === locId; });
                 if (loc) {
@@ -713,7 +799,7 @@
             });
         });
 
-        // 绑定编辑按钮
+        // 绑定地点编辑按钮
         container.querySelectorAll('.map-loc-edit').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -725,7 +811,7 @@
             });
         });
 
-        // 绑定删除按钮
+        // 绑定地点删除按钮
         container.querySelectorAll('.map-loc-delete').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -737,6 +823,110 @@
                     showNotification('地点已删除', 'info');
                 }
             });
+        });
+
+        // 绑定子地图点击（进入子地图）
+        container.querySelectorAll('.map-submap-item').forEach(function (item) {
+            item.addEventListener('click', function (e) {
+                if (e.target.closest('.map-submap-delete') || e.target.closest('.map-submap-edit')) return;
+                var submapKey = this.getAttribute('data-submap-key');
+                if (!allMapData[submapKey]) {
+                    allMapData[submapKey] = createDefaultMapData(submapKey);
+                }
+                mapStack.push(submapKey);
+                updateBreadcrumb();
+                saveMapData();
+                renderTabContent();
+            });
+        });
+
+        // 绑定子地图编辑按钮
+        container.querySelectorAll('.map-submap-edit').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var submapKey = this.getAttribute('data-submap-key');
+                showEditSubmapDialog(submapKey);
+            });
+        });
+
+        // 绑定子地图删除按钮
+        container.querySelectorAll('.map-submap-delete').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var submapKey = this.getAttribute('data-submap-key');
+                if (!confirm('确定要删除这个子地图吗？')) return;
+                // 从 submaps 中移除
+                data.submaps = data.submaps.filter(function (s) { return s.key !== submapKey; });
+                // 清除关联的地点 hasSubmap
+                data.locations.forEach(function (loc) {
+                    if (loc.submapId === submapKey) {
+                        loc.hasSubmap = false;
+                        delete loc.submapId;
+                    }
+                });
+                saveMapData();
+                renderTabContent();
+                if (typeof showNotification === 'function') {
+                    showNotification('子地图已删除', 'info');
+                }
+            });
+        });
+    }
+
+    // 编辑子地图对话框
+    function showEditSubmapDialog(submapKey) {
+        var data = currentData();
+        var submap = data.submaps.find(function (s) { return s.key === submapKey; });
+        if (!submap) return;
+        var smData = allMapData[submapKey];
+        var currentName = smData && smData.name ? smData.name : submap.name;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'modal show';
+        overlay.innerHTML = ''
+            + '<div class="modal-content" style="max-width:320px;">'
+            +   '<div class="modal-header" style="background:var(--accent-color);"><span class="modal-icon">🗺️</span><span class="modal-title-text">编辑子地图</span></div>'
+            +   '<div class="modal-body" style="padding:20px;">'
+            +     '<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">子地图名称</label>'
+            +     '<input id="map-edit-submap-name-input" type="text" value="' + escapeHtml(currentName) + '" placeholder="输入子地图名称" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--radius-xs);font-size:14px;color:var(--text-primary);background:var(--primary-bg);outline:none;font-family:var(--font-family);margin-bottom:12px;" />'
+            +     '<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">X 坐标</label>'
+            +     '<input id="map-edit-submap-x" type="number" value="' + Math.round(submap.x) + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--radius-xs);font-size:14px;color:var(--text-primary);background:var(--primary-bg);outline:none;font-family:var(--font-family);margin-bottom:12px;" />'
+            +     '<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Y 坐标</label>'
+            +     '<input id="map-edit-submap-y" type="number" value="' + Math.round(submap.y) + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--radius-xs);font-size:14px;color:var(--text-primary);background:var(--primary-bg);outline:none;font-family:var(--font-family);margin-bottom:12px;" />'
+            +     '<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">宽度</label>'
+            +     '<input id="map-edit-submap-w" type="number" value="' + Math.round(submap.w) + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--radius-xs);font-size:14px;color:var(--text-primary);background:var(--primary-bg);outline:none;font-family:var(--font-family);margin-bottom:12px;" />'
+            +     '<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">高度</label>'
+            +     '<input id="map-edit-submap-h" type="number" value="' + Math.round(submap.h) + '" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:var(--radius-xs);font-size:14px;color:var(--text-primary);background:var(--primary-bg);outline:none;font-family:var(--font-family);margin-bottom:12px;" />'
+            +   '</div>'
+            +   '<div class="modal-footer">'
+            +     '<button class="dreamy-btn secondary" onclick="this.closest(\'.modal\').remove()">取消</button>'
+            +     '<button class="dreamy-btn primary" id="map-edit-submap-confirm">保存</button>'
+            +   '</div>'
+            + '</div>';
+        document.body.appendChild(overlay);
+
+        document.getElementById('map-edit-submap-confirm').addEventListener('click', function () {
+            var newName = document.getElementById('map-edit-submap-name-input').value.trim();
+            var newX = parseInt(document.getElementById('map-edit-submap-x').value) || submap.x;
+            var newY = parseInt(document.getElementById('map-edit-submap-y').value) || submap.y;
+            var newW = parseInt(document.getElementById('map-edit-submap-w').value) || submap.w;
+            var newH = parseInt(document.getElementById('map-edit-submap-h').value) || submap.h;
+
+            if (newName) {
+                submap.name = newName;
+                if (smData) smData.name = newName;
+            }
+            submap.x = newX;
+            submap.y = newY;
+            submap.w = newW;
+            submap.h = newH;
+
+            saveMapData();
+            renderTabContent();
+            overlay.remove();
+            if (typeof showNotification === 'function') {
+                showNotification('子地图信息已更新', 'success');
+            }
         });
     }
 
@@ -1570,9 +1760,16 @@
                         renderTabContent();
                     }
 
-                    // 将视图居中到TA位置
-                    panOffset.x = canvas.width / 2 / zoomLevel - taLoc.x;
-                    panOffset.y = canvas.height / 2 / zoomLevel - taLoc.y;
+                    // 缩放到一个合适的级别，确保TA位置清晰可见
+                    zoomLevel = 1.5;
+                    // 将视图居中到TA位置（使用CSS尺寸而非像素尺寸）
+                    var area = document.getElementById('map-canvas-area');
+                    var cw = area ? area.clientWidth : canvas.width;
+                    var ch = area ? area.clientHeight : canvas.height;
+                    panOffset.x = cw / 2 / zoomLevel - taLoc.x;
+                    panOffset.y = ch / 2 / zoomLevel - taLoc.y;
+                    // 标记已自适应，防止 render 中的 centerView 覆盖定位结果
+                    hasFitView = true;
 
                     if (typeof showNotification === 'function') {
                         var partnerName = getPartnerName() || '梦角';
@@ -1613,6 +1810,7 @@
                         var panel = document.getElementById('map-terrain-panel');
                         if (panel) panel.style.display = 'block';
                         terrainEditVisible = true;
+                        initTerrainHistory();
                     } else {
                         var panel = document.getElementById('map-terrain-panel');
                         if (panel) panel.style.display = 'none';
@@ -1661,6 +1859,32 @@
                 }
             });
         }
+
+        // 撤销/重做按钮
+        var terrainUndoBtn = document.getElementById('terrain-undo-btn');
+        if (terrainUndoBtn) {
+            terrainUndoBtn.addEventListener('click', function () {
+                undoTerrainEdit();
+            });
+        }
+        var terrainRedoBtn = document.getElementById('terrain-redo-btn');
+        if (terrainRedoBtn) {
+            terrainRedoBtn.addEventListener('click', function () {
+                redoTerrainEdit();
+            });
+        }
+
+        // 键盘快捷键（Ctrl+Z 撤销，Ctrl+Y 恢复）
+        document.addEventListener('keydown', function (e) {
+            if (!isVisible || activeTool !== 'terrainedit') return;
+            if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault();
+                undoTerrainEdit();
+            } else if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
+                e.preventDefault();
+                redoTerrainEdit();
+            }
+        });
 
         // 标签栏切换
         document.querySelectorAll('.map-tab-btn').forEach(function (btn) {
@@ -1921,6 +2145,8 @@
                         w: Math.round(w),
                         h: Math.round(h)
                     });
+                    // 操作后保存历史
+                    pushTerrainHistory();
                 }
 
                 saveMapData();
@@ -2241,6 +2467,8 @@
             var t = data.terrain[i];
             if (x >= t.x && x <= t.x + (t.w || PIXEL_SIZE) && y >= t.y && y <= t.y + (t.h || PIXEL_SIZE)) {
                 data.terrain.splice(i, 1);
+                // 操作后保存历史
+                pushTerrainHistory();
                 saveMapData();
                 if (typeof showNotification === 'function') {
                     showNotification('地形已删除', 'info');
@@ -2388,32 +2616,16 @@
     var _avatarCheckTimer = null;
     var _taMoveTimer = null;
 
-    /**
-     * 生成下一次TA移动的时间间隔（毫秒）
-     * - 范围：[30分钟, 24小时]
-     * - 2-6小时为主（加权概率约60%）
-     */
     function getNextMoveInterval() {
-        var MIN_MS = 30 * 60 * 1000;       // 30分钟
-        var MAX_MS = 24 * 60 * 60 * 1000;  // 24小时
-        var MAIN_MIN = 2 * 60 * 60 * 1000;  // 2小时
-        var MAIN_MAX = 6 * 60 * 60 * 1000;  // 6小时
-
-        var r = Math.random();
-        var interval;
-        if (r < 0.6) {
-            interval = MAIN_MIN + Math.random() * (MAIN_MAX - MAIN_MIN);
-        } else if (r < 0.8) {
-            interval = MIN_MS + Math.random() * (MAIN_MIN - MIN_MS);
-        } else {
-            interval = MAIN_MAX + Math.random() * (MAX_MS - MAIN_MAX);
-        }
-        return Math.round(interval);
+        var MIN_MS = 30 * 60 * 1000;        // 30分钟
+        var MAX_MS = 12 * 60 * 60 * 1000;   // 12小时
+        return MIN_MS + Math.random() * (MAX_MS - MIN_MS);
     }
 
     // 自动随机移动TA位置
     function moveTaLocationRandomly() {
         try {
+            console.log('[MapApp] moveTaLocationRandomly called');
             // 收集所有地图中可移动的目标地点
             var targets = [];
             for (var key in allMapData) {
@@ -2432,21 +2644,22 @@
                     }
                 }
             }
-            if (targets.length === 0) return;
+            if (targets.length === 0) { console.log('[MapApp] no targets'); return; }
 
             // 随机选择一个目标
             var target = targets[Math.floor(Math.random() * targets.length)];
+            console.log('[MapApp] target:', target.name, 'at', target.mapKey);
 
             // 找到当前包含TA位置的地图
             var sourceKey = null;
             var sourceData = null;
             var taLoc = null;
-            for (var key in allMapData) {
-                var mapData = allMapData[key];
+            for (var k in allMapData) {
+                var mapData = allMapData[k];
                 if (!mapData || !mapData.locations) continue;
                 for (var i = 0; i < mapData.locations.length; i++) {
                     if (mapData.locations[i].type === 'ta') {
-                        sourceKey = key;
+                        sourceKey = k;
                         sourceData = mapData;
                         taLoc = mapData.locations[i];
                         break;
@@ -2454,11 +2667,12 @@
                 }
                 if (taLoc) break;
             }
-            if (!taLoc || !sourceData) return;
+            if (!taLoc || !sourceData) { console.log('[MapApp] ta not found'); return; }
+            console.log('[MapApp] ta currently at', sourceKey, taLoc.x, taLoc.y);
 
             // 目标地图数据
             var targetData = allMapData[target.mapKey];
-            if (!targetData || !targetData.locations) return;
+            if (!targetData || !targetData.locations) { console.log('[MapApp] target data missing'); return; }
 
             // 从源地图移除TA
             sourceData.locations = sourceData.locations.filter(function (l) { return l.type !== 'ta'; });
@@ -2475,6 +2689,7 @@
                 hasSubmap: false
             };
             targetData.locations.push(newTaLoc);
+            console.log('[MapApp] ta moved to', target.mapKey, target.x, target.y);
 
             // 记录TA当前所在地图（用于定位功能）
             _taCurrentMapKey = target.mapKey;
@@ -2506,7 +2721,7 @@
             var partnerName = getPartnerName() || '梦角';
             showTaMoveNotification(partnerName, target.name);
         } catch (e) {
-            // 忽略错误
+            console.error('[MapApp] moveTaLocationRandomly error:', e);
         }
     }
 

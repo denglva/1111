@@ -3945,7 +3945,7 @@ const SHOP_ITEMS = {
 function showShop() {
     try {
         renderShopContent('food');
-        document.getElementById('shop-modal').classList.add('show');
+        document.getElementById('pet-shop-modal').classList.add('show');
     } catch(e) { console.error('showShop error:', e); }
 }
 
@@ -3956,7 +3956,7 @@ window.switchShopTab = function(tab) {
 };
 
 function renderShopContent(tab) {
-    const container = document.getElementById('shop-content');
+    const container = document.getElementById('pet-shop-content');
     const items = SHOP_ITEMS[tab] || [];
 
     container.innerHTML = items.map(item => `
@@ -3985,21 +3985,21 @@ window.buyItem = function(tab, itemId) {
     pendingPurchase = { tab, item };
 
     // 显示购买确认弹窗
-    document.getElementById('shop-buy-name').textContent = item.name;
-    document.getElementById('shop-buy-icon').textContent = item.icon;
-    document.getElementById('shop-buy-price').textContent = item.price;
-    document.getElementById('shop-buy-total').textContent = item.price;
-    document.getElementById('shop-buy-quantity').value = 1;
+    document.getElementById('pet-shop-buy-name').textContent = item.name;
+    document.getElementById('pet-shop-buy-icon').textContent = item.icon;
+    document.getElementById('pet-shop-buy-price').textContent = item.price;
+    document.getElementById('pet-shop-buy-total').textContent = item.price;
+    document.getElementById('pet-shop-buy-quantity').value = 1;
 
-    document.getElementById('shop-buy-modal').classList.add('show');
+    document.getElementById('pet-shop-buy-modal').classList.add('show');
 };
 
 // 更新购买总价
 window.updateBuyTotal = function() {
     if (!pendingPurchase) return;
-    const quantity = parseInt(document.getElementById('shop-buy-quantity').value) || 1;
+    const quantity = parseInt(document.getElementById('pet-shop-buy-quantity').value) || 1;
     const total = pendingPurchase.item.price * quantity;
-    document.getElementById('shop-buy-total').textContent = total;
+    document.getElementById('pet-shop-buy-total').textContent = total;
 };
 
 // 确认购买
@@ -4008,12 +4008,12 @@ window.confirmBuy = function() {
 
     const pet = getCurrentPet();
     const { tab, item } = pendingPurchase;
-    const quantity = parseInt(document.getElementById('shop-buy-quantity').value) || 1;
+    const quantity = parseInt(document.getElementById('pet-shop-buy-quantity').value) || 1;
     const totalPrice = item.price * quantity;
 
     if (gameState.coins < totalPrice) {
         showToast('💰 萌宠币不足，外出探索可以获得更多哦~');
-        closeModal('shop-buy-modal');
+        closeModal('pet-shop-buy-modal');
         return;
     }
 
@@ -4064,8 +4064,8 @@ window.confirmBuy = function() {
     document.getElementById('coin-amount').textContent = gameState.coins;
 
     pendingPurchase = null;
-    closeModal('shop-buy-modal');
-    Storage.save();
+    closeModal('pet-shop-buy-modal');
+    saveGame();Storage.save();
     updatePetUI();
 };
 

@@ -63,8 +63,9 @@
      * @param {Object} product - 商品对象 { name, icon, img, price }
      * @param {number} qty - 数量
      * @param {string} source - 来源（购买/代付/自动购买/给梦角买）
+     * @param {string} orderId - 关联订单ID（用于取消订单时精确删除）
      */
-    function addToMyGiftCabinet(product, qty, source) {
+    function addToMyGiftCabinet(product, qty, source, orderId) {
         const shopApp = window.ShopApp;
         if (!shopApp) return;
 
@@ -78,6 +79,7 @@
             price: product.price,
             qty: qty || 1,
             source: source || '购买',
+            orderId: orderId || null,
             time: Date.now()
         });
 

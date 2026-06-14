@@ -227,15 +227,19 @@ if (target.classList.contains('delete-btn')) {
 
                 if (shouldSaveToLibrary) {
                     try {
-                        if (!Array.isArray(customPokes)) customPokes = [];
-                        const exists = customPokes.some(r => String(r) === String(pokeText));
+                        // 保存到表情快捷栏独立的 myPokes 库，不再同步到氛围感拍一拍
+                        if (!Array.isArray(myPokes)) myPokes = [];
+                        const exists = myPokes.some(r => String(r) === String(pokeText));
                         if (!exists) {
-                            customPokes.unshift(pokeText);
+                            myPokes.unshift(pokeText);
                             if (typeof throttledSaveData === 'function') throttledSaveData();
-                            if (typeof renderReplyLibrary === 'function') renderReplyLibrary();
+                            if (typeof showNotification === 'function') showNotification('✓ 已保存到快捷栏', 'success');
+                        } else {
+                            if (typeof showNotification === 'function') showNotification('该拍一拍已存在', 'info');
                         }
                     } catch (e) {
-                        console.warn('拍一拍保存到库失败:', e);
+                        console.warn('拍一拍保存到快捷栏失败:', e);
+                        if (typeof showNotification === 'function') showNotification('保存失败', 'error');
                     }
                 }
                 hideModal(DOMElements.pokeModal.modal);
@@ -1134,7 +1138,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     '#read-no-reply-toggle': { prop: 'allowReadNoReply', name: '已读不回' },
                     '#emoji-mix-toggle': { prop: 'emojiMixEnabled', name: '表情混入消息' },
                     '#kaomoji-mix-toggle': { prop: 'kaomojiMixEnabled', name: '颜文字混入消息' },
-                    '#enter-key-send-toggle': { prop: 'enterKeySendEnabled', name: '回车键发送' }
+                    '#enter-key-send-toggle': { prop: 'enterKeySendEnabled', name: '回车键发送' },
+                    '#pinyin-card-toggle': { prop: 'pinyinCardEnabled', name: '拼字卡' }
 };
 
             // 以下开关已有独立的 click 处理器，只需在初始化时同步 UI 状态
@@ -1168,6 +1173,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     element.classList.toggle('active', !!settings[prop]);
                     if (prop !== 'soundEnabled') renderMessages(true);
                     showNotification(`${name}已${settings[prop] ? '开启': '关闭'}`, 'success');
+                    // 拼字卡开关时展开/收起设置面板
+                    if (prop === 'pinyinCardEnabled') updatePinyinCardUI();
                 });
             }
 
@@ -1277,8 +1284,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
             if (_appearanceEl) _appearanceEl.addEventListener('click', () => {
                 hideModal(DOMElements.settingsModal.modal);
                 window.hideAppearancePanel && window.hideAppearancePanel();
-                renderBackgroundGallery();
-                renderThemeSchemesList();
+                try { renderBackgroundGallery(); } catch(e) { console.error('[appearance] renderBackgroundGallery出错:', e); }
+                try { renderThemeSchemesList(); } catch(e) { console.error('[appearance] renderThemeSchemesList出错:', e); }
                 
                 const fontSizeSliderEl = document.getElementById('font-size-slider');
                 const fontSizeValueEl = document.getElementById('font-size-value');
@@ -1335,7 +1342,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                         });
                         saveBackgroundGallery();
                         renderBackgroundGallery();
-                        applyBackground(base64);
+                        window.applyBackground && window.applyBackground(base64);
                         localforage.setItem(getStorageKey('chatBackground'), base64);
                         showNotification('新背景已添加并应用', 'success');
                     };
@@ -1380,6 +1387,54 @@ autoSendSlider.addEventListener('change', () => {
     manageAutoSendTimer();
     throttledSaveData();
 });
+
+// 拼字卡设置
+const pinyinCardSettings = document.getElementById('pinyin-card-settings');
+const pinyinCardMinSlider = document.getElementById('pinyin-card-min-slider');
+const pinyinCardMinValue = document.getElementById('pinyin-card-min-value');
+const pinyinCardMaxSlider = document.getElementById('pinyin-card-max-slider');
+const pinyinCardMaxValue = document.getElementById('pinyin-card-max-value');
+
+const updatePinyinCardUI = () => {
+    if (pinyinCardSettings) pinyinCardSettings.style.display = settings.pinyinCardEnabled ? 'block' : 'none';
+    if (pinyinCardMinSlider) {
+        const minVal = settings.pinyinCardMin || 2;
+        pinyinCardMinSlider.value = minVal;
+        pinyinCardMinValue.textContent = minVal + '句';
+    }
+    if (pinyinCardMaxSlider) {
+        const maxVal = settings.pinyinCardMax || 3;
+        pinyinCardMaxSlider.value = maxVal;
+        pinyinCardMaxValue.textContent = maxVal + '句';
+    }
+};
+updatePinyinCardUI();
+
+if (pinyinCardMinSlider) {
+    pinyinCardMinSlider.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value);
+        if (val > (settings.pinyinCardMax || 3)) {
+            val = settings.pinyinCardMax || 3;
+            pinyinCardMinSlider.value = val;
+        }
+        settings.pinyinCardMin = val;
+        pinyinCardMinValue.textContent = val + '句';
+    });
+    pinyinCardMinSlider.addEventListener('change', () => { throttledSaveData(); });
+}
+
+if (pinyinCardMaxSlider) {
+    pinyinCardMaxSlider.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value);
+        if (val < (settings.pinyinCardMin || 2)) {
+            val = settings.pinyinCardMin || 2;
+            pinyinCardMaxSlider.value = val;
+        }
+        settings.pinyinCardMax = val;
+        pinyinCardMaxValue.textContent = val + '句';
+    });
+    pinyinCardMaxSlider.addEventListener('change', () => { throttledSaveData(); });
+}
 
 // 摸鱼自动生成设置
 const moyuAutoGenerateToggle = document.getElementById('moyu-auto-generate-toggle');
@@ -1655,7 +1710,7 @@ if (envelopeReplyMaxSentencesSlider) {
             const resetBgBtn = document.getElementById('reset-default-bg');
             if (resetBgBtn) {
                 resetBgBtn.addEventListener('click', () => {
-                    removeBackground();
+                    window.removeBackground && window.removeBackground();
                     renderBackgroundGallery();
                     showNotification('已移除背景图', 'success');
                 });
@@ -1898,6 +1953,7 @@ if (sessionId === currentSessionId) {
             });
 
             DOMElements.sendBtn.addEventListener('click', () => isBatchMode ? addToBatch(): sendMessage());
+
             // 回车键发送功能
             DOMElements.messageInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -2227,11 +2283,29 @@ window.toggleCollapsedExtras = function() {
         const primary = document.getElementById(primaryId);
         if (extra && primary && !extra._linked) {
             extra._linked = true;
-            extra.addEventListener('click', (e) => { e.stopPropagation(); primary.click(); });
+            extra.addEventListener('click', (e) => {
+                e.stopPropagation();
+                primary.click();
+                // 点击后自动收起收纳栏
+                panel.style.display = 'none';
+                if (btn) btn.classList.remove('open');
+            });
         }
     }
     wireExtra('combo-btn-extra', 'combo-btn');
     wireExtra('batch-btn-extra', 'batch-btn');
+
+    // 为相册按钮添加点击后自动收起
+    const attachExtra = document.getElementById('attachment-btn-extra');
+    if (attachExtra && !attachExtra._autoCollapse) {
+        attachExtra._autoCollapse = true;
+        attachExtra.addEventListener('click', () => {
+            setTimeout(() => {
+                panel.style.display = 'none';
+                if (btn) btn.classList.remove('open');
+            }, 50);
+        });
+    }
 };
 
 window.exitCollapseMode = function() {

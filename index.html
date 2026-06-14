@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="css/pet-style.css">
     <link rel="stylesheet" href="css/moments.css">
     <link rel="stylesheet" href="css/map.css">
+    <link rel="stylesheet" href="css/spark.css">
 
     <style id="css-live-preview-style">
         /* 输入框样式 */
@@ -226,6 +227,21 @@
                 <div class="splash-slides" id="splash-slides">
 
                     <div class="splash-slide active" data-index="0">
+                        <div class="splash-slide-tag">说在最前</div>
+                        <div class="splash-slide-title">关于该二改网站</div>
+                        <div class="splash-slide-body" style="font-size:13px;line-height:1.6;">
+                            <p style="margin:4px 0;"><strong>致谢</strong></p>
+                            <p style="margin:4px 0;">本网站基于milk老师的代码进行二次开发。感谢milk老师原创付出，本二改版本尊重并保留原作者的一切权益。本网页修改制作前后耗时一个月，在此感谢参与测试、提供反馈和建议的各位。</p>
+                            <p style="margin:4px 0;"><strong>二改说明</strong></p>
+                            <p style="margin:4px 0;">二改作者为 <strong>小红书@之缘</strong>（42914702638）。除milk老师原创功能外，<strong>「摸鱼小记」「TA的手机」板块为本二改版本的原创功能</strong>，其中「TA的手机」灵感感谢小红书@Ww（503800375）。红包、商场等功能灵感虽不为我原创，但由我首次引入字卡网站，特此说明。</p>
+                            <div class="splash-highlight-box" style="margin:6px 0;padding:8px 10px;font-size:12.5px;">
+                                <strong>严禁盗用、冒领本版本。</strong>其余社媒上一切以"我"为名或声称是该版本作者的一律为盗用者。欢迎向我举报盗用行为，有任何反馈也可通过小红书私信告知我。
+                            </div>
+                            <p style="margin:4px 0;"><strong>社媒发布须知：</strong>在社媒上发布该二改网页的截图时，欢迎带上话题 <strong>#之缘</strong> 或 <strong>#Zmilk传讯网站</strong>。</p>
+                        </div>
+                    </div>
+
+                    <div class="splash-slide" data-index="1">
                         <div class="splash-slide-tag">关于字卡</div>
                         <div class="splash-slide-title">是否招鬼？</div>
                         <div class="splash-slide-body">
@@ -235,7 +251,7 @@
                         </div>
                     </div>
 
-                    <div class="splash-slide" data-index="1">
+                    <div class="splash-slide" data-index="2">
                         <div class="splash-slide-tag">关于谣言</div>
                         <div class="splash-slide-title">请有自知之明</div>
                         <div class="splash-slide-body">
@@ -245,7 +261,7 @@
                         </div>
                     </div>
 
-                    <div class="splash-slide" data-index="2">
+                    <div class="splash-slide" data-index="3">
                         <div class="splash-slide-tag">关于盈利</div>
                         <div class="splash-slide-title">纯粹为爱发电</div>
                         <div class="splash-slide-body">
@@ -256,7 +272,7 @@
                         </div>
                     </div>
 
-                    <div class="splash-slide" data-index="3">
+                    <div class="splash-slide" data-index="4">
                         <div class="splash-slide-tag">再次强调</div>
                         <div class="splash-slide-title">你对链接梦角的看法？</div>
                         <div class="splash-slide-body">
@@ -267,7 +283,7 @@
                         </div>
                     </div>
 
-                    <div class="splash-slide" data-index="4">
+                    <div class="splash-slide" data-index="5">
                         <div class="splash-slide-tag">关于视频通话</div>
                         <div class="splash-slide-title">纯粹的装饰</div>
                         <div class="splash-slide-body">
@@ -278,7 +294,7 @@
                         </div>
                     </div>
 
-                    <div class="splash-slide" data-index="5">
+                    <div class="splash-slide" data-index="6">
                         <div class="splash-slide-tag">入场承诺</div>
                         <div class="splash-slide-title">请留下你的承诺</div>
                         <div class="splash-pledge-desc">在下方输入框中，<em style="color:rgba(var(--accent-color-rgb,197,164,126),0.8);font-style:normal;">逐字抄写</em>以下承诺，即可进入网站。</div>
@@ -294,7 +310,7 @@
                     <button class="splash-btn splash-btn-ghost" id="splash-prev-btn" disabled>
                         <i class="fas fa-arrow-left"></i> 上一页
                     </button>
-                    <span class="splash-page-num" id="splash-page-num">1 / 6</span>
+                    <span class="splash-page-num" id="splash-page-num">1 / 7</span>
                     <button class="splash-btn splash-btn-next" id="splash-next-btn">
                         下一页 <i class="fas fa-arrow-right"></i>
                     </button>
@@ -395,7 +411,7 @@
             <div class="hero-card-bottom">
                 <div class="hero-content-bottom">
                     <div class="hero-title" id="hero-title">我 & 梦角</div>
-                    <div class="hero-subtitle" id="hero-subtitle">分享热汤 我们两个汤匙一个碗</div>
+                    <div class="hero-subtitle" id="hero-subtitle">两颗缠绕的心 会走同一条路</div>
                 </div>
             </div>
         </div>
@@ -639,6 +655,7 @@
                     <button class="order-tab active" onclick="window.ShopApp.filterOrder(this,'all')">全部</button>
                     <button class="order-tab" onclick="window.ShopApp.filterOrder(this,'pending')">待送达</button>
                     <button class="order-tab" onclick="window.ShopApp.filterOrder(this,'completed')">已完成</button>
+                    <button class="order-tab" onclick="window.ShopApp.filterOrder(this,'cancelled')">已取消</button>
                 </div>
                 <div class="order-list" id="shop-order-list"></div>
             </div>
@@ -957,7 +974,7 @@
             <div class="customize-section">
                 <div class="customize-section-title">签名</div>
                 <div class="customize-field">
-                    <input type="text" id="customize-subtitle-input" value="分享热汤 我们两个汤匙一个碗" maxlength="30" onchange="updateHeroSubtitle(this.value)" placeholder="输入签名">
+                    <input type="text" id="customize-subtitle-input" value="两颗缠绕的心 会走同一条路" maxlength="30" onchange="updateHeroSubtitle(this.value)" placeholder="输入签名">
                 </div>
             </div>
 
@@ -1541,8 +1558,8 @@
                 <div class="modal-footer"><button class="dreamy-btn secondary" onclick="closeModal('pet-card-modal')">关闭</button></div>
             </div>
         </div>
-        <!-- 商场弹窗 -->
-        <div class="modal" id="shop-modal">
+        <!-- 像素宠物商场弹窗 -->
+        <div class="modal" id="pet-shop-modal">
             <div class="modal-content">
                 <div class="modal-header mint"><span class="modal-icon">🛒</span><span class="modal-title-text">商场</span></div>
                 <div class="modal-body" style="padding:10px;">
@@ -1552,27 +1569,27 @@
                         <button class="shop-tab" data-tab="clothes" onclick="switchShopTab('clothes')">👔 服饰区</button>
                         <button class="shop-tab" data-tab="supplies" onclick="switchShopTab('supplies')">🧸 宠物用具</button>
                     </div>
-                    <div class="shop-content" id="shop-content"></div>
+                    <div class="shop-content" id="pet-shop-content"></div>
                 </div>
-                <div class="modal-footer"><button class="dreamy-btn secondary" onclick="closeModal('shop-modal')">关闭</button></div>
+                <div class="modal-footer"><button class="dreamy-btn secondary" onclick="closeModal('pet-shop-modal')">关闭</button></div>
             </div>
         </div>
-        <!-- 购买确认弹窗 -->
-        <div class="modal" id="shop-buy-modal">
+        <!-- 像素宠物购买确认弹窗 -->
+        <div class="modal" id="pet-shop-buy-modal">
             <div class="modal-content">
                 <div class="modal-header yellow"><span class="modal-icon">🛒</span><span class="modal-title-text">确认购买</span></div>
                 <div class="modal-body" style="text-align:center;padding:20px;">
-                    <div style="font-size:3rem;margin-bottom:10px;" id="shop-buy-icon">🥕</div>
-                    <div style="font-size:1.1rem;font-weight:700;margin-bottom:5px;" id="shop-buy-name">高级胡萝卜</div>
-                    <div style="font-size:0.9rem;color:var(--text-light);margin-bottom:15px;">单价: 💰<span id="shop-buy-price">50</span></div>
+                    <div style="font-size:3rem;margin-bottom:10px;" id="pet-shop-buy-icon">🥕</div>
+                    <div style="font-size:1.1rem;font-weight:700;margin-bottom:5px;" id="pet-shop-buy-name">高级胡萝卜</div>
+                    <div style="font-size:0.9rem;color:var(--text-light);margin-bottom:15px;">单价: 💰<span id="pet-shop-buy-price">50</span></div>
                     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:15px;">
                         <span style="font-size:0.85rem;">数量:</span>
-                        <input type="number" id="shop-buy-quantity" class="dreamy-input" value="1" min="1" max="99" style="width:60px;text-align:center;" onchange="updateBuyTotal()">
+                        <input type="number" id="pet-shop-buy-quantity" class="dreamy-input" value="1" min="1" max="99" style="width:60px;text-align:center;" onchange="updateBuyTotal()">
                     </div>
-                    <div style="font-size:1rem;font-weight:700;color:var(--peach);padding:10px;background:var(--cream);border-radius:10px;">总计: 💰<span id="shop-buy-total">50</span></div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--peach);padding:10px;background:var(--cream);border-radius:10px;">总计: 💰<span id="pet-shop-buy-total">50</span></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="dreamy-btn secondary" onclick="closeModal('shop-buy-modal')">取消</button>
+                    <button class="dreamy-btn secondary" onclick="closeModal('pet-shop-buy-modal')">取消</button>
                     <button class="dreamy-btn primary" onclick="confirmBuy()">确认购买</button>
                 </div>
             </div>
@@ -1663,7 +1680,6 @@
                         <div class="nav-icons">
                             <svg viewBox="0 0 24 24" onclick="MomentsApp.openSearchPanel()"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                             <svg viewBox="0 0 24 24" onclick="MomentsApp.openBeautifyPanel()"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
-                            <svg viewBox="0 0 24 24" onclick="MomentsApp.openAlbumPanel()"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                             <div class="visitor-icon-wrap" style="position:relative;display:inline-flex;align-items:center;">
                                 <svg viewBox="0 0 24 24" onclick="MomentsApp.openVisitorPanel()" style="cursor:pointer;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                                 <span class="visitor-badge" id="visitorBadge" style="display:none;"></span>
@@ -1813,38 +1829,6 @@
             </div>
         </div>
 
-        <!-- Album Panel -->
-        <div class="album-panel" id="albumPanel">
-            <div class="album-header">
-                <button class="back-btn" onclick="MomentsApp.closeAlbumPanel()">
-                    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                    返回
-                </button>
-                <span class="title">朋友圈相册</span>
-                <button class="album-expand-btn" id="albumExpandBtn" onclick="MomentsApp.toggleAlbumExpand()">
-                    <svg viewBox="0 0 24 24"><path d="M3 3h8v2H3V3zm0 4h8v2H3V7zm0 4h8v2H3v-2zm10 0h8v2h-8v-2zm0-4h8v2h-8V7zm0-4h8v2h-8V3z"/></svg>
-                </button>
-            </div>
-            <div class="album-filter-bar" id="albumFilterBar">
-                <div class="album-filter-row">
-                    <span class="album-filter-label">从</span>
-                    <input type="date" id="albumDateFrom" onchange="MomentsApp.renderAlbum()">
-                </div>
-                <div class="album-filter-row">
-                    <span class="album-filter-label">至</span>
-                    <input type="date" id="albumDateTo" onchange="MomentsApp.renderAlbum()">
-                </div>
-                <div class="album-filter-actions">
-                    <button onclick="MomentsApp.setAlbumQuickTime('week')" class="album-quick-btn">一周</button>
-                    <button onclick="MomentsApp.setAlbumQuickTime('month')" class="album-quick-btn">一月</button>
-                    <button onclick="MomentsApp.setAlbumQuickTime('year')" class="album-quick-btn">一年</button>
-                    <button onclick="MomentsApp.clearAlbumTimeFilter()" class="album-quick-btn">清除</button>
-                </div>
-            </div>
-            <div class="album-body" id="albumBody">
-                <div class="album-empty">暂无照片</div>
-            </div>
-        </div>
 
         <!-- Collection Panel -->
         <div class="collection-panel" id="collectionPanel">
@@ -1877,7 +1861,7 @@
             </div>
             <div class="publish-body">
                 <textarea class="publish-textarea" id="publishText" placeholder="这一刻的想法..."></textarea>
-                <div class="publish-mentions" id="publishMentionsDisplay" style="display:none;">
+                <div class="publish-mentions" id="publishMentionsDisplay" style="display:none;" onclick="MomentsApp.openMentionPanel()">
                     <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>
                     <span id="mentionsText">提醒谁看</span>
                 </div>
@@ -2140,6 +2124,11 @@
                 <button id="theme-toggle" class="action-btn" title="切换主题"><i class="fas fa-moon"></i></button>
                 <button id="calendar-btn" class="action-btn" title="日历" onclick="openMiniCalendar()"><i class="fas fa-calendar-alt"></i></button>
                 <button id="settings-btn" class="action-btn" title="设置"><i class="fas fa-cog"></i></button>
+                <!-- 火花图标 -->
+                <div class="spark-icon" id="spark-icon" onclick="SparkApp.openSparkModal()" style="display:none;">
+                    <span class="spark-flame">&#x1F525;</span>
+                    <span class="spark-badge" id="spark-badge"></span>
+                </div>
             </div>
              <div class="user-info">
                 <div class="username" id="my-name">
@@ -2248,29 +2237,40 @@
         <div class="batch-preview" id="batch-preview"></div>
         <div id="reply-preview-container"></div>
         <div id="collapsed-extras-panel" style="display:none;">
-            <div class="collapsed-extras-inner" style="padding:12px; background:var(--secondary-bg); border-top:1px solid var(--border-color);">
-                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px;">
-                    <button class="collapsed-extra-btn" id="attachment-btn-extra" title="发送图片" onclick="document.getElementById('image-input').click()">
-                        <i class="fas fa-image"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" id="combo-btn-extra" title="表情拍一拍">
-                        <i class="fas fa-laugh-beam"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" id="batch-btn-extra" title="批量发送">
-                        <i class="fas fa-layer-group"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" title="字卡回复" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');showModal(document.getElementById('custom-replies-modal'));})();">
-                        <i class="fas fa-comment-dots"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" title="塔罗占卜" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');generateFortune();})();">
-                        <i class="fas fa-star-and-crescent"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" id="collapsed-call-btn" title="视频通话" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');if(window.callFeature&&typeof window.callFeature.startCall==='function')window.callFeature.startCall(false);})();">
-                        <i class="fas fa-video"></i>
-                    </button>
-                    <button class="collapsed-extra-btn" title="退出收纳" onclick="window.exitCollapseMode && window.exitCollapseMode()" style="color:#ff5050; background:rgba(255,80,80,0.1);">
-                        <i class="fas fa-times"></i>
-                    </button>
+            <div class="collapsed-extras-inner">
+                <div class="wx-extras-grid">
+                    <div class="wx-extra-item" id="attachment-btn-extra" onclick="document.getElementById('image-input').click()">
+                        <div class="wx-extra-icon"><i class="fas fa-image"></i></div>
+                        <div class="wx-extra-label">相册</div>
+                    </div>
+                    <div class="wx-extra-item" id="combo-btn-extra">
+                        <div class="wx-extra-icon"><i class="fas fa-laugh-beam"></i></div>
+                        <div class="wx-extra-label">表情</div>
+                    </div>
+                    <div class="wx-extra-item" id="continue-btn-extra" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');var cb=document.getElementById('continue-btn');if(cb)cb.click();})();">
+                        <div class="wx-extra-icon"><i class="fas fa-ellipsis-h"></i></div>
+                        <div class="wx-extra-label">继续说</div>
+                    </div>
+                    <div class="wx-extra-item" id="red-packet-btn-extra" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');window.showRedPacketSendModal && window.showRedPacketSendModal();})();">
+                        <div class="wx-extra-icon"><i class="fas fa-envelope"></i></div>
+                        <div class="wx-extra-label">红包</div>
+                    </div>
+                    <div class="wx-extra-item" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');showModal(document.getElementById('custom-replies-modal'));})();">
+                        <div class="wx-extra-icon"><i class="fas fa-comment-dots"></i></div>
+                        <div class="wx-extra-label">字卡</div>
+                    </div>
+                    <div class="wx-extra-item" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');generateFortune();})();">
+                        <div class="wx-extra-icon"><i class="fas fa-star-and-crescent"></i></div>
+                        <div class="wx-extra-label">占卜</div>
+                    </div>
+                    <div class="wx-extra-item" id="collapsed-call-btn" onclick="(function(){document.getElementById('collapsed-extras-panel').style.display='none';document.getElementById('collapse-expand-btn').classList.remove('open');if(window.callFeature&&typeof window.callFeature.startCall==='function')window.callFeature.startCall(false);})();">
+                        <div class="wx-extra-icon"><i class="fas fa-video"></i></div>
+                        <div class="wx-extra-label">通话</div>
+                    </div>
+                    <div class="wx-extra-item" onclick="window.exitCollapseMode && window.exitCollapseMode()">
+                        <div class="wx-extra-icon" style="background:rgba(255,80,80,0.08);color:#e74c3c;"><i class="fas fa-times"></i></div>
+                        <div class="wx-extra-label">退出</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2293,8 +2293,8 @@
     <textarea class="message-input" id="message-input" placeholder="" wrap="soft" rows="1"></textarea>
     
     <div class="input-buttons">
-    <button class="continue-btn input-btn" id="continue-btn" title="让对方继续说"><i class="fas fa-ellipsis-h"></i></button>
-        <button class="batch-btn input-btn collapse-hideable" id="batch-btn" title="批量发送模式"><i class="fas fa-layer-group"></i></button>
+    <button class="continue-btn input-btn collapse-hideable" id="continue-btn" title="让对方继续说"><i class="fas fa-ellipsis-h"></i></button>
+    <button class="batch-btn input-btn" id="batch-btn" title="批量发送模式"><i class="fas fa-layer-group"></i></button>
         <button class="send-btn input-btn" id="send-btn" title="发送消息"><i class="fas fa-paper-plane"></i></button>
         
         <div class="sticker-picker-popover" id="user-sticker-picker">
@@ -2448,7 +2448,7 @@
     </div>
 </div>
 
-<div class="modal" id="envelope-view-modal" style="z-index:2100;">
+<div class="modal" id="envelope-view-modal" style="z-index:100000;">
     <div class="modal-content" style="overflow:hidden;padding:0;background:transparent;max-height:92vh;display:flex;flex-direction:column;">
     <div style="background:var(--secondary-bg);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
         <div style="background:var(--accent-color);padding:0;position:relative;overflow:hidden;flex-shrink:0;">
@@ -3127,6 +3127,27 @@
                                 <span class="cs-slider-label">间隔</span>
                                 <input type="range" min="1" max="120" step="1" value="5" class="font-size-slider" id="auto-send-slider">
                                 <span class="cs-slider-val" id="auto-send-value">5分钟</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="cs-group-label" style="margin-top:4px;">拼字卡</p>
+                    <div class="cs-card">
+                        <div class="setting-pill-row" id="pinyin-card-toggle">
+                            <span class="setting-pill-icon"><i class="fas fa-puzzle-piece"></i></span>
+                            <span class="setting-pill-label">拼字卡 <span style="font-size:11px;color:var(--text-secondary);font-weight:400;">开启后，系统会随机将字卡拼接合并发送</span></span>
+                            <div class="setting-pill-switch"><div class="setting-pill-knob"></div></div>
+                        </div>
+                        <div id="pinyin-card-settings" style="display:none;border-top:1px solid var(--border-color);margin-top:8px;">
+                            <div class="cs-slider-row">
+                                <span class="cs-slider-label">最少句数</span>
+                                <input type="range" min="2" max="10" step="1" value="2" class="font-size-slider" id="pinyin-card-min-slider">
+                                <span class="cs-slider-val" id="pinyin-card-min-value">2句</span>
+                            </div>
+                            <div class="cs-slider-row">
+                                <span class="cs-slider-label">最多句数</span>
+                                <input type="range" min="2" max="10" step="1" value="3" class="font-size-slider" id="pinyin-card-max-slider">
+                                <span class="cs-slider-val" id="pinyin-card-max-value">3句</span>
                             </div>
                         </div>
                     </div>
@@ -4425,8 +4446,12 @@
                     <p style="font-weight: bold; color: var(--text-primary); text-align: center;">
                         原创：小红书 @milk (1149615009)
                     </p>
+                    <p style="font-weight: bold; color: var(--text-primary); text-align: center;">
+                        二改作者：小红书@之缘(42914702638)
+                    </p>
                     <p style="color: #e53935; font-weight: bold; text-align: center; margin-top: 10px; border: 1px solid #e53935; padding: 5px; border-radius: 5px;">
                         此代码绝对禁止商用和盈利行为，一旦发现追究到底
+                        请尊重著作权，禁止盗用、冒领我的二改网站，或以此盈利二贩，一旦发现追究到底
                     </p>
                     <p style="text-align: center; margin-bottom: 15px;">支持二改二传，感谢使用！</p>
                     <li style="text-align: center; font-size: 1.1em; color: #8A2BE2; list-style: none; margin: 5px 0;"><b>反对性别暴力</b></li>
@@ -4579,16 +4604,16 @@
     <script src="js/features/theme-editor.js"></script>
     <script src="js/features/group-chat.js"></script>
     <script src="js/features/call.js"></script>
-    <script src="js/features/diary.js"></script>
-    <script src="js/features/accounting.js"></script>
-    <script src="js/features/moyu.js"></script>
+    <script src="js/diary.js"></script>
+    <script src="js/accounting.js"></script>
+    <script src="js/moyu.js"></script>
     <script src="js/features/map.js"></script>
 
     <!-- == 合并模块 == -->
-    <script src="js/games.js"></script> 
-    <script src="js/features.js"></script> 
+    <script src="js/games.js"></script>
+    <script src="js/features.js"></script>
     <script src="js/data.js"></script>
-    <script src="js/onboarding.js"></script> 
+    <script src="js/onboarding.js"></script>
     <script src="js/listeners.js"></script>
     <script src="js/app.js"></script>
     <script src="js/pet-game.js"></script>
@@ -4596,5 +4621,30 @@
     <script src="js/shop.js"></script>
     <script src="js/gift-cabinet.js"></script>
     <script src="js/moments.js"></script>
+    <script src="js/spark.js"></script>
+
+    <!-- 火花弹窗（放在 body 直接子级，避免被父容器 overflow:hidden 裁剪） -->
+    <div class="spark-modal-overlay" id="spark-modal-overlay" onclick="SparkApp.closeSparkModal()">
+        <div class="spark-modal" onclick="event.stopPropagation()">
+            <div class="spark-modal-flame" id="spark-modal-flame">&#x1F525;</div>
+            <div class="spark-modal-title" id="spark-modal-title">火花燃烧中</div>
+            <div class="spark-modal-subtitle" id="spark-modal-subtitle">保持连续聊天，让火花更旺！</div>
+            <div class="spark-stats-grid">
+                <div class="spark-stat-card">
+                    <div class="spark-stat-value" id="spark-streak-days">0</div>
+                    <div class="spark-stat-label">连续天数</div>
+                </div>
+                <div class="spark-stat-card">
+                    <div class="spark-stat-value" id="spark-rekindle-count">0</div>
+                    <div class="spark-stat-label">重燃次数</div>
+                </div>
+            </div>
+            <div class="spark-rekindle-info" id="spark-rekindle-info">
+                <div class="rekindle-text">&#x2728; 火花状态良好</div>
+                <div class="rekindle-sub">继续保持连续聊天吧！</div>
+            </div>
+            <button class="spark-modal-close" onclick="SparkApp.closeSparkModal()">知道了</button>
+        </div>
+    </div>
 </body>
 </html>

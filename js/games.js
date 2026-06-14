@@ -1452,40 +1452,67 @@ function initComboMenu() {
         };
         wrapper.appendChild(customBtn);
 
-        const userPresets = [
-            "拍了拍对方的头",
-            "戳了戳对方的脸颊",
-            "抱住了对方",
-            "给对方比了个心",
-            "牵起了对方的手",
-            "看着对方发呆"
-        ];
+        // 使用独立的 myPokes 库（仅用户可用，系统不使用）
+        const userPresets = (typeof myPokes !== 'undefined' && Array.isArray(myPokes) && myPokes.length > 0)
+            ? myPokes
+            : [];
 
-        const title = document.createElement('div');
-        title.style.fontSize = '12px';
-        title.style.color = 'var(--text-secondary)';
-        title.style.marginBottom = '5px';
-        title.innerText = '快捷动作';
-        wrapper.appendChild(title);
+        if (userPresets.length > 0) {
+            const title = document.createElement('div');
+            title.style.fontSize = '12px';
+            title.style.color = 'var(--text-secondary)';
+            title.style.marginBottom = '5px';
+            title.innerText = '快捷动作';
+            wrapper.appendChild(title);
 
-        userPresets.forEach(text => {
-            const item = document.createElement('div');
-            item.className = 'poke-quick-item';
-            item.innerText = text;
-            item.onclick = (e) => {
-                e.stopPropagation();
-                addMessage({
-                    id: Date.now(),
-                    text: _formatPokeText(`${settings.myName} ${text}`), 
-                    timestamp: new Date(),
-                    type: 'system' 
+            userPresets.forEach((text, idx) => {
+                const item = document.createElement('div');
+                item.className = 'poke-quick-item';
+                item.innerText = text;
+                item.style.position = 'relative';
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    addMessage({
+                        id: Date.now(),
+                        text: _formatPokeText(`${settings.myName} ${text}`), 
+                        timestamp: new Date(),
+                        type: 'system' 
+                    });
+                    picker.classList.remove('active');
+                    setTimeout(simulateReply, 1500);
+                };
+                // 长按删除
+                let longPressTimer = null;
+                item.addEventListener('touchstart', (e) => {
+                    longPressTimer = setTimeout(() => {
+                        if (confirm('删除此拍一拍？')) {
+                            myPokes.splice(idx, 1);
+                            if (typeof throttledSaveData === 'function') throttledSaveData();
+                            renderUserPokeMenu();
+                        }
+                    }, 800);
+                }, { passive: true });
+                item.addEventListener('touchend', () => { clearTimeout(longPressTimer); });
+                item.addEventListener('touchcancel', () => { clearTimeout(longPressTimer); });
+                item.addEventListener('mousedown', () => {
+                    longPressTimer = setTimeout(() => {
+                        if (confirm('删除此拍一拍？')) {
+                            myPokes.splice(idx, 1);
+                            if (typeof throttledSaveData === 'function') throttledSaveData();
+                            renderUserPokeMenu();
+                        }
+                    }, 800);
                 });
-                picker.classList.remove('active');
-                
-                setTimeout(simulateReply, 1500);
-            };
-            wrapper.appendChild(item);
-        });
+                item.addEventListener('mouseup', () => { clearTimeout(longPressTimer); });
+                item.addEventListener('mouseleave', () => { clearTimeout(longPressTimer); });
+                wrapper.appendChild(item);
+            });
+        } else {
+            const empty = document.createElement('div');
+            empty.style.cssText = 'text-align:center;padding:20px 10px;color:var(--text-secondary);font-size:13px;';
+            empty.innerHTML = '<i class="fas fa-hand-sparkles" style="font-size:20px;margin-bottom:6px;display:block;opacity:0.4;"></i>暂无快捷动作<br><span style="font-size:11px;opacity:0.6;">点击上方"自定义动作"添加</span>';
+            wrapper.appendChild(empty);
+        }
 
         contentArea.appendChild(wrapper);
     }

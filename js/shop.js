@@ -265,7 +265,30 @@
         // 小数据存 localStorage（礼物柜同时存 localStorage 供 TA 的手机读取）
         localStorage.setItem(STORAGE_KEYS.balance, state.balance.toString());
         localStorage.setItem(STORAGE_KEYS.searchHistory, JSON.stringify(state.searchHistory));
-        localStorage.setItem(STORAGE_KEYS.giftCabinet, JSON.stringify(state.giftCabinet));
+        try {
+            localStorage.setItem(STORAGE_KEYS.giftCabinet, JSON.stringify(state.giftCabinet));
+        } catch (e) {
+            // localStorage 溢出，清理非必要数据后重试
+            console.warn('[Shop] localStorage quota exceeded, clearing non-essential data');
+            // 清理搜索历史
+            localStorage.removeItem(STORAGE_KEYS.searchHistory);
+            try {
+                localStorage.setItem(STORAGE_KEYS.giftCabinet, JSON.stringify(state.giftCabinet));
+            } catch (e2) {
+                // 仍然溢出，清理礼物柜中的图片数据后重试
+                console.warn('[Shop] Still exceeded, stripping images from giftCabinet');
+                var slimCabinet = (state.giftCabinet || []).map(function(item) {
+                    var copy = Object.assign({}, item);
+                    if (copy.img) delete copy.img;
+                    return copy;
+                });
+                try {
+                    localStorage.setItem(STORAGE_KEYS.giftCabinet, JSON.stringify(slimCabinet));
+                } catch (e3) {
+                    console.error('[Shop] Cannot save giftCabinet to localStorage, skipping');
+                }
+            }
+        }
     }
 
     // ========== 页面显示/隐藏 ==========
@@ -348,6 +371,8 @@
             .filter(p => p.category === 'food')
             .map(p => createProductCard(p))
             .join('');
+
+        bindProductLongPress();
     }
 
     function createProductCard(product) {
@@ -373,6 +398,101 @@
                 </div>
             </div>
         `;
+    }
+
+    // 渲染后绑定长按事件
+    function bindProductLongPress() {
+        document.querySelectorAll('.product-card').forEach(card => {
+            const productId = card.getAttribute('data-id');
+            let timer = null;
+            const startLongPress = (e) => {
+                timer = setTimeout(() => {
+                    e.preventDefault();
+                    editProduct(productId);
+                }, 600);
+            };
+            const cancelLongPress = () => {
+                if (timer) { clearTimeout(timer); timer = null; }
+            };
+            card.addEventListener('touchstart', startLongPress, { passive: true });
+            card.addEventListener('touchmove', cancelLongPress, { passive: true });
+            card.addEventListener('touchend', cancelLongPress, { passive: true });
+            card.addEventListener('touchcancel', cancelLongPress, { passive: true });
+            card.addEventListener('mousedown', startLongPress);
+            card.addEventListener('mousemove', cancelLongPress);
+            card.addEventListener('mouseup', cancelLongPress);
+            card.addEventListener('mouseleave', cancelLongPress);
+        });
+    }
+
+    // ========== 商品编辑 ==========
+    function editProduct(productId) {
+        const product = state.products.find(p => p.id === productId);
+        if (!product) return;
+
+        // 标记编辑模式
+        state._editingProductId = productId;
+
+        // 填充表单
+        const nameEl = document.getElementById('wish-name');
+        const priceEl = document.getElementById('wish-price');
+        const categoryEl = document.getElementById('wish-category');
+        const tagsEl = document.getElementById('wish-tags');
+        const iconEl = document.getElementById('wish-icon');
+        const descEl = document.getElementById('wish-desc');
+
+        if (nameEl) nameEl.value = product.name || '';
+        if (priceEl) priceEl.value = product.price || '';
+        if (categoryEl) categoryEl.value = product.category || 'recommend';
+        if (tagsEl) tagsEl.value = product.tags || '';
+        if (iconEl) iconEl.value = product.icon || '';
+        if (descEl) descEl.value = product.desc || '';
+
+        // 填充规格
+        const specsContainer = document.getElementById('wish-specs');
+        if (specsContainer) specsContainer.innerHTML = '';
+        if (product.specs && product.specs.length > 0) {
+            product.specs.forEach(spec => {
+                addWishSpec(spec.name, spec.options);
+            });
+        }
+
+        // 图片预览
+        if (product.img) {
+            wishImgData = product.img;
+            const preview = document.getElementById('wish-img-preview');
+            if (preview) {
+                preview.innerHTML = `<img src="${product.img}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;">`;
+                preview.style.display = 'flex';
+            }
+        }
+
+        // 修改弹窗标题和按钮
+        const titleEl = document.querySelector('#shop-wish-modal .shop-modal-content > div');
+        if (titleEl) titleEl.textContent = '✏️ 编辑商品';
+        const submitBtn = document.querySelector('#shop-wish-modal .buy-btn.dream');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-check"></i> 保存修改';
+
+        // 添加删除按钮（如果不存在）
+        if (!document.getElementById('wish-delete-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'wish-delete-btn';
+            btn.style.cssText = 'width:100%;margin-top:8px;padding:12px;border:1.5px solid #ff4757;background:transparent;color:#ff4757;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;font-family:var(--font-family);';
+            btn.innerHTML = '<i class="fas fa-trash"></i> 删除此商品';
+            btn.onclick = () => {
+                if (confirm('确定删除此商品？')) {
+                    state.products = state.products.filter(p => p.id !== productId);
+                    saveData();
+                    renderProducts();
+                    closeWishModal();
+                    if (typeof showNotification === 'function') showNotification('已删除', 'success');
+                }
+            };
+            submitBtn.parentNode.insertBefore(btn, submitBtn.nextSibling);
+        }
+
+        // 打开弹窗
+        document.getElementById('shop-wish-modal').classList.add('active');
     }
 
     // ========== 商品详情 ==========
@@ -657,8 +777,8 @@
             });
         }
 
-        // 放入我的礼物柜
-        if (window.GiftCabinetApp) window.GiftCabinetApp.add(product, state.modalQty, target === 'dream' ? '给梦角买' : '购买');
+        // 放入我的礼物柜（给梦角买的只进TA的礼物柜，不进我的礼物柜）
+        if (target !== 'dream' && window.GiftCabinetApp) window.GiftCabinetApp.add(product, state.modalQty, '购买', order.id);
 
         try {
             await saveData();
@@ -799,7 +919,7 @@
             state.orders.unshift(order);
 
             // 放入我的礼物柜
-            if (window.GiftCabinetApp) window.GiftCabinetApp.add(item, item.qty, '购物车购买');
+            if (window.GiftCabinetApp) window.GiftCabinetApp.add(item, item.qty, '购物车购买', order.id);
         });
 
         state.cart = state.cart.filter(item => !item.selected);
@@ -821,13 +941,16 @@
 
         list.innerHTML = state.orders.map(order => {
             const isPending = order.status === 'pending';
+            const isCancelled = order.status === 'cancelled';
             const timeStr = formatTime(order.time);
             const deliverStr = order.deliverTime ? `预计 ${formatTime(order.deliverTime)} 送达` : timeStr;
+            const statusText = isPending ? '待送达' : (isCancelled ? '已取消' : '已完成');
+            const cancelBtnHtml = isCancelled ? '' : `<button class="order-btn danger" onclick="window.ShopApp.cancelOrder('${order.id}')">取消订单</button>`;
             return `
                 <div class="order-item">
                     <div class="order-header">
                         <span style="font-size:0.75rem;color:var(--text-light);">订单号: ${order.id}</span>
-                        <span class="order-status ${order.status}">${isPending ? '待送达' : '已完成'}</span>
+                        <span class="order-status ${order.status}">${statusText}</span>
                     </div>
                     <div class="order-product">
                         <div class="order-product-img">${order.icon || '📦'}</div>
@@ -840,8 +963,9 @@
                     <div class="order-footer">
                         <span class="order-time">${isPending ? deliverStr : timeStr}</span>
                         <div class="order-actions">
+                            ${cancelBtnHtml}
                             ${order.replies && order.replies.length > 0 ? `<button class="order-btn" onclick="window.ShopApp.showReplyModal('${order.id}')">查看回复</button>` : ''}
-                            <button class="order-btn primary" onclick="window.ShopApp.rebuy('${order.productId}')">再次购买</button>
+                            ${!isCancelled ? `<button class="order-btn primary" onclick="window.ShopApp.rebuy('${order.productId}')">再次购买</button>` : ''}
                         </div>
                     </div>
                     ${order.remark ? `<div class="order-remark">${order.remark}</div>` : ''}
@@ -864,6 +988,8 @@
                 item.style.display = order.status === 'pending' ? 'block' : 'none';
             } else if (type === 'completed') {
                 item.style.display = order.status === 'completed' ? 'block' : 'none';
+            } else if (type === 'cancelled') {
+                item.style.display = order.status === 'cancelled' ? 'block' : 'none';
             }
         });
     }
@@ -871,6 +997,39 @@
     function rebuy(productId) {
         const product = state.products.find(p => p.id === productId);
         if (product) showProductDetail(productId);
+    }
+
+    // ========== 取消订单 ==========
+    async function cancelOrder(orderId) {
+        const orderIndex = state.orders.findIndex(o => o.id === orderId);
+        if (orderIndex === -1) return;
+        const order = state.orders[orderIndex];
+
+        if (order.status === 'cancelled') {
+            showToast('该订单已取消');
+            return;
+        }
+
+        const refundAmount = order.price * order.qty;
+        if (!confirm(`确定取消订单「${order.name}」？金额 ¥${refundAmount.toFixed(2)} 将退回余额。`)) return;
+
+        // 1. 退回金额
+        state.balance += refundAmount;
+
+        // 2. 从 TA 的礼物柜删除（通过 orderId 匹配）
+        state.giftCabinet = state.giftCabinet.filter(item => item.orderId !== orderId);
+
+        // 3. 从我的礼物柜删除（通过 orderId 匹配）
+        state.myGiftCabinet = (state.myGiftCabinet || []).filter(item => item.orderId !== orderId);
+
+        // 4. 更新订单状态为 cancelled
+        order.status = 'cancelled';
+
+        // 5. 保存并刷新
+        try { await saveData(); } catch (e) { console.error('[Shop] cancelOrder saveData error:', e); }
+        updateBalanceDisplay();
+        renderOrders();
+        showToast('订单已取消，金额已退回');
     }
 
     // ========== 分享 & 代付 ==========
@@ -975,7 +1134,7 @@
         state.orders.unshift(order);
 
         // 放入我的礼物柜
-        if (window.GiftCabinetApp) window.GiftCabinetApp.add(product, state.modalQty, '代付');
+        if (window.GiftCabinetApp) window.GiftCabinetApp.add(product, state.modalQty, '代付', order.id);
 
         try { await saveData(); } catch (e) { console.error('[Shop] askTAPay saveData error:', e); }
         updateBalanceDisplay();
@@ -1092,7 +1251,7 @@
         state.cart = state.cart.filter(c => c !== item);
 
         // 放入我的礼物柜
-        if (window.GiftCabinetApp) window.GiftCabinetApp.add(product, item.qty, '自动购买');
+        if (window.GiftCabinetApp) window.GiftCabinetApp.add(product, item.qty, '自动购买', order.id);
 
         try { await saveData(); } catch (e) { console.error('[Shop] tryAutoBuyFromCart saveData error:', e); }
         updateBalanceDisplay();
@@ -1313,19 +1472,34 @@
 
     function closeWishModal() {
         document.getElementById('shop-wish-modal').classList.remove('active');
+        // 重置编辑状态
+        state._editingProductId = null;
+        // 恢复弹窗标题和按钮
+        const titleEl = document.querySelector('#shop-wish-modal .shop-modal-content > div');
+        if (titleEl) titleEl.textContent = '✨ 许愿商品';
+        const submitBtn = document.querySelector('#shop-wish-modal .buy-btn.dream');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-magic"></i> 许愿上架';
+        // 移除删除按钮
+        const delBtn = document.getElementById('wish-delete-btn');
+        if (delBtn) delBtn.remove();
     }
 
-    function addWishSpec() {
+    function addWishSpec(specName, specOptions) {
         const container = document.getElementById('wish-specs');
         const div = document.createElement('div');
+        const nameVal = specName || '';
+        const opts = Array.isArray(specOptions) ? specOptions : [];
+        const optInputs = opts.length > 0
+            ? opts.map(o => `<input type="text" class="spec-input wish-spec-opt" placeholder="选项" value="${o}">`).join('')
+            : `<input type="text" class="spec-input wish-spec-opt" placeholder="选项1">
+               <input type="text" class="spec-input wish-spec-opt" placeholder="选项2">
+               <input type="text" class="spec-input wish-spec-opt" placeholder="选项3">`;
         div.innerHTML = `
             <div class="spec-input-row">
-                <input type="text" class="spec-input wish-spec-name" placeholder="规格名称">
+                <input type="text" class="spec-input wish-spec-name" placeholder="规格名称" value="${nameVal}">
             </div>
             <div class="spec-input-row">
-                <input type="text" class="spec-input wish-spec-opt" placeholder="选项1">
-                <input type="text" class="spec-input wish-spec-opt" placeholder="选项2">
-                <input type="text" class="spec-input wish-spec-opt" placeholder="选项3">
+                ${optInputs}
             </div>
         `;
         container.appendChild(div);
@@ -1391,7 +1565,8 @@
                 }
             });
 
-            const productId = 'p' + Date.now();
+            const productId = state._editingProductId || ('p' + Date.now());
+            const isEditing = !!state._editingProductId;
             const product = {
                 id: productId,
                 name: name,
@@ -1406,7 +1581,17 @@
                 product.img = wishImgData;
             }
 
-            state.products.push(product);
+            if (isEditing) {
+                // 编辑模式：更新已有商品
+                const idx = state.products.findIndex(p => p.id === productId);
+                if (idx >= 0) {
+                    state.products[idx] = product;
+                }
+            } else {
+                // 新增模式
+                state.products.push(product);
+            }
+            state._editingProductId = null;
             await saveData(); // 文本数据存 localStorage
 
             // 图片存 IndexedDB（异步）
@@ -1432,7 +1617,7 @@
             }
 
             closeWishModal();
-            alert('许愿成功！商品已上架');
+            alert(isEditing ? '修改已保存' : '许愿成功！商品已上架');
         } catch (err) {
             console.error('[Shop] submitWish error:', err);
             alert('上架失败: ' + err.message);
@@ -1543,6 +1728,7 @@
         deleteSelected,
         shareProduct,
         askTAPay,
+        cancelOrder,
         startAutoBuyTimer,
         stopAutoBuyTimer,
         _getState: () => state,

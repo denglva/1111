@@ -220,6 +220,7 @@
         const chatArea = document.querySelector('.main-chat-area');
         const header = document.querySelector('.header');
         const inputArea = document.querySelector('.input-area-wrapper');
+        const pageBg = document.getElementById('home-page-bg');
 
         // 允许 body 滚动
         document.body.classList.add('home-active');
@@ -228,6 +229,7 @@
             homeContainer.classList.add('active');
             homeContainer.style.display = 'flex';
         }
+        if (pageBg) pageBg.style.display = 'block';
         if (chatArea) chatArea.style.display = 'none';
         if (header) header.style.display = 'none';
         if (inputArea) inputArea.style.display = 'none';
@@ -244,6 +246,7 @@
         const chatArea = document.querySelector('.main-chat-area');
         const header = document.querySelector('.header');
         const inputArea = document.querySelector('.input-area-wrapper');
+        const pageBg = document.getElementById('home-page-bg');
 
         // 恢复 body 不滚动
         document.body.classList.remove('home-active');
@@ -252,6 +255,7 @@
             homeContainer.classList.remove('active');
             homeContainer.style.display = 'none';
         }
+        if (pageBg) pageBg.style.display = 'none';
         if (chatArea) chatArea.style.display = '';
         if (header) header.style.display = '';
         if (inputArea) inputArea.style.display = '';
@@ -749,6 +753,15 @@
             toggle.classList.toggle('active', bgSyncEnabled);
         }
         localStorage.setItem('home_bg_sync', bgSyncEnabled ? 'true' : 'false');
+
+        // 关闭绑定时，清除 chatContainer 上残留的内联背景样式
+        // 以免遮挡后续通过外观设置更改的 --chat-bg-image
+        if (!bgSyncEnabled) {
+            const chatContainer = document.getElementById('chat-container');
+            if (chatContainer) {
+                chatContainer.style.removeProperty('background');
+            }
+        }
     };
 
     // ========== 主页绑定会话开关 ==========
@@ -778,7 +791,7 @@
     function syncBgToChat(bgValue) {
         if (!bgSyncEnabled) return;
         
-        // 保存到聊天设置的背景
+        // 保存到聊天设置的背景（仅保存设置，不直接修改 DOM）
         if (window.settings) {
             window.settings.chatBackground = bgValue;
             // 触发保存
@@ -787,11 +800,9 @@
             }
         }
         
-        // 直接更新聊天界面背景
-        const chatContainer = document.getElementById('chat-container');
-        if (chatContainer) {
-            chatContainer.style.background = bgValue;
-        }
+        // 不再直接修改 chatContainer.style.background，
+        // 避免内联样式优先级过高，遮挡外观设置中的 --chat-bg-image
+        // 聊天页背景由外观设置独立控制
         
         // 更新聊天设置中的背景显示
         const chatBgPreview = document.getElementById('chat-bg-preview');
@@ -1440,6 +1451,11 @@
         }
         // 强制显示在最上层
         modalElement.style.cssText = 'display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; z-index: 99999 !important; align-items: center !important; justify-content: center !important; background-color: rgba(0, 0, 0, 0.6) !important;';
+        // 隐藏 header 和 input-area，彻底避免遮挡
+        const header = document.querySelector('.header');
+        if (header) header.style.visibility = 'hidden';
+        const inputArea = document.querySelector('.input-area-wrapper');
+        if (inputArea) inputArea.style.visibility = 'hidden';
         // 重置内容动画 - 先重置为初始状态，然后触发动画
         const content = modalElement.querySelector('.modal-content');
         if (content) {
@@ -1495,7 +1511,10 @@
             },
             'mailbox': () => {
                 const modal = document.getElementById('envelope-modal');
-                if (modal) homeShowModal(modal);
+                if (modal) {
+                    if (typeof renderEnvelopeLists === 'function') renderEnvelopeLists();
+                    homeShowModal(modal);
+                }
             },
             'moyu': () => {
                 // 隐藏摸鱼小记小红点
@@ -1530,6 +1549,7 @@
                 }
             },
             'fortune': () => {
+                if (typeof generateFortune === 'function') generateFortune();
                 const modal = document.getElementById('fortune-lenormand-modal');
                 if (modal) homeShowModal(modal);
             },
@@ -1554,8 +1574,12 @@
                 if (modal) homeShowModal(modal);
             },
             'accounting': () => {
-                const modal = document.getElementById('accounting-modal');
-                if (modal) homeShowModal(modal);
+                if (typeof window.openAccountingModal === 'function') {
+                    window.openAccountingModal();
+                } else {
+                    const modal = document.getElementById('accounting-modal');
+                    if (modal) homeShowModal(modal);
+                }
             },
             'pet': () => {
                 // 切换到萌宠屋页面（内嵌，非跳转）
@@ -1665,7 +1689,10 @@
             },
             'cards': () => {
                 const modal = document.getElementById('custom-replies-modal');
-                if (modal) homeShowModal(modal);
+                if (modal) {
+                    if (typeof renderReplyLibrary === 'function') renderReplyLibrary();
+                    homeShowModal(modal);
+                }
             },
             'chat': () => {
                 // 聊天设置 - 直接打开聊天设置弹窗
@@ -2060,6 +2087,13 @@
     window.initHomePage = async function() {
         // 清理旧的底部栏颜色设置（已废弃）
         localStorage.removeItem('home_nav_colors');
+
+        // 清理 chatContainer 上可能残留的内联背景样式
+        // （之前版本 syncBgToChat 会设置此样式，现在已由外观设置独立控制）
+        const chatContainer = document.getElementById('chat-container');
+        if (chatContainer) {
+            chatContainer.style.removeProperty('background');
+        }
 
         await loadSavedSettings();
 

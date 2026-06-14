@@ -355,6 +355,12 @@
         var titleColor = isPending ? 'color:#ffd700;' : (isReturned ? 'color:#999;' : 'color:#ffd700;');
         var titleText = isReturned ? '已过期' : record.message;
 
+        // 判断是否为系统发出的红包（我方领取），添加退回按钮
+        var isSystemSender = record.from === 'system';
+        var returnBtnHtml = (isPending && isSystemSender)
+            ? '<button id="rp-return-btn" style="width:100%;max-width:200px;padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#ff6b35,#f7931e);color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);box-shadow:0 2px 8px rgba(255,107,53,0.35);">退回红包</button>'
+            : '';
+
         var html =
             '<div id="rp-receive-panel" style="text-align:center;position:relative;overflow:hidden;border-radius:16px;width:260px;min-height:380px;' + panelBg + 'display:flex;flex-direction:column;">' +
                 // 顶部金色装饰线
@@ -368,13 +374,64 @@
                     '<div style="font-size:18px;font-weight:700;' + titleColor + '">' + titleText + '</div>' +
                 '</div>' +
                 // 底部按钮区域
-                '<div style="padding:30px 20px 40px;display:flex;justify-content:center;' + (isOpened ? 'background:#ccc;' : 'background:#c4453c;') + '">' +
+                '<div style="padding:30px 20px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;' + (isOpened ? 'background:#ccc;' : 'background:#c4453c;') + '">' +
                     '<button id="rp-open-btn" style="width:60px;height:60px;border-radius:50%;' + btnBg + 'font-size:22px;font-weight:700;border:none;transition:all 0.15s;">' + btnText + '</button>' +
+                    returnBtnHtml +
                 '</div>' +
             '</div>';
 
         overlay.innerHTML = html;
         document.body.appendChild(overlay);
+
+        // 绑定退回按钮事件（领取前）
+        if (isPending && isSystemSender) {
+            var returnBtn = overlay.querySelector('#rp-return-btn');
+            if (returnBtn) {
+                returnBtn.onmouseenter = function () { this.style.filter = 'brightness(1.1)'; this.style.transform = 'translateY(-1px)'; this.style.boxShadow = '0 4px 16px rgba(255,107,53,0.5)'; };
+                returnBtn.onmouseleave = function () { this.style.filter = 'none'; this.style.transform = 'translateY(0)'; this.style.boxShadow = '0 2px 8px rgba(255,107,53,0.35)'; };
+                returnBtn.onclick = function () {
+                    // 退回红包：金额退回系统，不更新用户余额
+                    transferData.systemBalance += record.amount;
+                    record.status = 'returned';
+                    record.returnedAt = Date.now();
+
+                    if (typeof window.throttledSaveData === 'function') window.throttledSaveData();
+
+                    // 更新弹窗为已退回状态
+                    var panel = overlay.querySelector('#rp-receive-panel');
+                    panel.style.background = 'linear-gradient(180deg,#e0d8d8 0%,#ccc 100%)';
+                    panel.innerHTML =
+                        '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#999 20%,#999 80%,transparent);"></div>' +
+                        '<div style="padding:30px 16px 20px;display:flex;flex-direction:column;align-items:center;flex:1;justify-content:center;">' +
+                            '<div style="width:48px;height:48px;border-radius:50%;background:#999;border:2px solid rgba(255,255,255,0.3);margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">' +
+                                '<i class="fas fa-undo"></i>' +
+                            '</div>' +
+                            '<div style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:6px;">' + senderName + ' 发来的红包</div>' +
+                            '<div style="font-size:18px;font-weight:700;color:#999;">已退回</div>' +
+                        '</div>' +
+                        '<div style="padding:30px 20px 40px;display:flex;justify-content:center;background:#ccc;">' +
+                            '<button style="width:60px;height:60px;border-radius:50%;background:#ddd;color:#999;font-size:22px;font-weight:700;border:none;box-shadow:none;cursor:default;">已退回</button>' +
+                        '</div>';
+
+                    if (typeof window.showNotification === 'function') window.showNotification('红包已退回', 'info');
+
+                    // 发送退回样式的红包卡片到聊天
+                    if (typeof addMessage === 'function') {
+                        addMessage({
+                            id: 'rp_returned_' + Date.now(),
+                            sender: 'user',
+                            text: record.message || '恭喜发财',
+                            timestamp: new Date(),
+                            status: 'sent',
+                            type: 'red-packet',
+                            redPacket: record
+                        });
+                    }
+
+                    if (typeof renderMessages === 'function') renderMessages();
+                };
+            }
+        }
 
         // 点击開按钮
         var openBtn = overlay.querySelector('#rp-open-btn');
@@ -385,45 +442,8 @@
             openBtn.onmouseup = function () { this.style.transform = 'scale(1.1)'; };
 
             openBtn.onclick = function () {
-                // 20%概率退回红包
-                if (Math.random() < 0.2) {
-                    // 退回红包：金额返还发送方
-                    if (record.from === 'system') {
-                        transferData.systemBalance += record.amount;
-                    }
-                    // 更新记录状态为已退回
-                    record.status = 'returned';
-                    record.returnedAt = Date.now();
-
-                    // 保存
-                    if (typeof window.throttledSaveData === 'function') window.throttledSaveData();
-
-                    // 更新弹窗为已退回状态
-                    var panel = overlay.querySelector('#rp-receive-panel');
-                    panel.style.background = 'linear-gradient(180deg,#e0d8d8 0%,#ccc 100%)';
-                    panel.innerHTML =
-                        '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#999 20%,#999 80%,transparent);"></div>' +
-                        '<div style="padding:30px 16px 20px;display:flex;flex-direction:column;align-items:center;flex:1;justify-content:center;">' +
-                            '<div style="width:48px;height:48px;border-radius:50%;background:var(--accent-color,#b8a9c9);border:2px solid rgba(153,153,153,0.5);margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">' +
-                                '<i class="fas fa-undo"></i>' +
-                            '</div>' +
-                            '<div style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:6px;">' + senderName + ' 发来的红包</div>' +
-                            '<div style="font-size:18px;font-weight:700;color:#999;">红包已退回</div>' +
-                        '</div>' +
-                        '<div style="padding:30px 20px 40px;display:flex;justify-content:center;background:#ccc;">' +
-                            '<button style="width:60px;height:60px;border-radius:50%;background:#ddd;color:#999;font-size:22px;font-weight:700;border:none;box-shadow:none;cursor:default;">已退回</button>' +
-                        '</div>';
-
-                    // 播放声音
-                    if (typeof window.playSound === 'function') window.playSound('message');
-
-                    // 通知
-                    if (typeof window.showNotification === 'function') window.showNotification('红包已被系统退回', 'info');
-
-                    // 刷新聊天消息列表
-                    if (typeof renderMessages === 'function') renderMessages();
-                    return;
-                }
+                // 用户领取系统发出的红包时，永远不退回
+                // 系统领取用户发出的红包时，20%概率退回（在自动处理路径中已实现）
 
                 // 正常领取：更新余额
                 if (record.from === 'system') {
@@ -440,6 +460,8 @@
                 // 更新弹窗为已领取状态
                 var panel = overlay.querySelector('#rp-receive-panel');
                 panel.style.background = 'linear-gradient(180deg,#e0d8d8 0%,#ccc 100%)';
+
+                // 更新弹窗为已领取状态（领取后不再显示退回按钮）
                 panel.innerHTML =
                     '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#ffd700 20%,#ffd700 80%,transparent);"></div>' +
                     '<div style="padding:30px 16px 20px;display:flex;flex-direction:column;align-items:center;flex:1;justify-content:center;">' +
@@ -448,8 +470,9 @@
                         '</div>' +
                         '<div style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:6px;">' + senderName + ' 发来的红包</div>' +
                         '<div style="font-size:18px;font-weight:700;color:#ffd700;">' + record.message + '</div>' +
+                        '<div style="font-size:24px;font-weight:700;color:#c4453c;margin-top:8px;">&yen;' + fmt(record.amount) + '</div>' +
                     '</div>' +
-                    '<div style="padding:30px 20px 40px;display:flex;justify-content:center;background:#ccc;">' +
+                    '<div style="padding:20px 20px 30px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#ccc;">' +
                         '<button style="width:60px;height:60px;border-radius:50%;background:#ddd;color:#999;font-size:22px;font-weight:700;border:none;box-shadow:none;cursor:default;">已领取</button>' +
                     '</div>';
 

@@ -211,6 +211,11 @@ const stickerInput = document.getElementById('sticker-file-input');
                         }
                     }
 
+                    // 通知其他模块表情包已更新
+                    try {
+                        window.dispatchEvent(new CustomEvent('stickerLibraryUpdated', { detail: { count: stickerLibrary.length } }));
+                    } catch(e) {}
+
                     throttledSaveData();
                     renderReplyLibrary();
 

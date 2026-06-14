@@ -729,6 +729,10 @@
             background: rgba(255,71,87,0.15);
             color: var(--accent-color, #ff4757);
         }
+        .order-status.cancelled {
+            background: rgba(139,148,158,0.15);
+            color: #8b949e;
+        }
         .order-product {
             display: flex;
             gap: 10px;
@@ -791,6 +795,11 @@
             color: white;
             border: none;
         }
+        .order-btn.danger {
+            background: rgba(255,71,87,0.1);
+            color: #ff4757;
+            border: 1px solid rgba(255,71,87,0.3);
+        }
         .order-remark {
             background: rgba(255,165,0,0.08);
             border-radius: 8px;
@@ -842,4 +851,17 @@
             font-size: 0.9rem;
             color: var(--text, #1a1a1a);
             line-height: 1.5;
+        }
+        /* 深色主题下商品名称白色 */
+        html[data-theme="dark"] .product-name,
+        html[data-theme="dark"] .order-product-name,
+        html[data-theme="dark"] .cart-item-name,
+        html[data-theme="dark"] .shop-modal-name {
+            color: #ffffff;
+        }
+        /* 深色主题下按钮文字白色 */
+        html[data-theme="dark"] .add-cart-btn,
+        html[data-theme="dark"] .buy-btn.self,
+        html[data-theme="dark"] .buy-btn.dream {
+            color: #ffffff;
         }
