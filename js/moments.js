@@ -109,13 +109,17 @@
   (function loadMomentsFromStorage() {
     try {
       const saved = localStorage.getItem('moments_data');
+      console.log('[Moments] loadMomentsFromStorage, saved length:', saved ? saved.length : 0);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           parsed.forEach(m => momentsData.push(m));
+          console.log('[Moments] 加载了', parsed.length, '条朋友圈');
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.error('[Moments] loadMomentsFromStorage 失败:', e);
+    }
 
     // 数据加载完成后，触发 TA的手机 历史扫描
     setTimeout(() => {
